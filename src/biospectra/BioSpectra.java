@@ -15,19 +15,6 @@
  */
 package biospectra;
 
-import java.io.File;
-import org.apache.lucene.analysis.Analyzer;
-import org.apache.lucene.document.Document;
-import org.apache.lucene.index.IndexReader;
-import org.apache.lucene.queryparser.classic.QueryParser;
-import org.apache.lucene.search.IndexSearcher;
-import org.apache.lucene.search.Query;
-import org.apache.lucene.search.ScoreDoc;
-import org.apache.lucene.search.TopScoreDocCollector;
-import org.apache.lucene.store.Directory;
-import org.apache.lucene.store.FSDirectory;
-import org.apache.lucene.util.Version;
-
 /**
  *
  * @author iychoi
@@ -38,38 +25,21 @@ public class BioSpectra {
      * @param args the command line arguments
      */
     public static void main(String[] args) throws Exception {
-        search(args);
+        if(args[0].equalsIgnoreCase("i") || args[0].equalsIgnoreCase("index")) {
+            index(args);
+        } else if(args[0].equalsIgnoreCase("s") || args[0].equalsIgnoreCase("search")) {
+            search(args);
+        }
     }
 
     private static void index(String[] args) throws Exception {
-        Indexer indexer = new Indexer("samples", "indices");
-        
+        Indexer indexer = new Indexer(args[1], args[2]);
         indexer.index();
     }
     
     private static void search(String[] args) throws Exception {
-        String index = "indices";
-        String field = "sequence";
-        //String queryString = "CACGGCTAGGTGGAAAGATT";
-        String queryString = "AATCTTTCCACCTAGCCGTG";
+        Searcher searcher = new Searcher(args[1]);
         
-        Analyzer analyzer = new KmerAnalyzer(20);
-        Query q = new QueryParser(Version.LUCENE_40, field, analyzer).parse(queryString);
-        
-        Directory dir = FSDirectory.open(new File(index)); 
-        IndexReader reader = IndexReader.open(dir);
-        IndexSearcher searcher = new IndexSearcher(reader);
-        
-        int hitsPerPage = 10;
-        TopScoreDocCollector collector = TopScoreDocCollector.create(hitsPerPage, true);
-        searcher.search(q, collector);
-        ScoreDoc[] hits = collector.topDocs().scoreDocs;
-        
-        System.out.println("Found " + hits.length + " hits.");
-        for(int i=0;i<hits.length;++i) {
-             int docId = hits[i].doc;
-             Document d = searcher.doc(docId);
-             System.out.println((i + 1) + ". " + d.get("filename"));
-        }
+        searcher.search(args[2], args[3]);
     }
 }

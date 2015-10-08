@@ -59,8 +59,8 @@ public class Indexer {
             throw new IllegalArgumentException("docPath is null");
         }
         
-        if(docPath == null) {
-            throw new IllegalArgumentException("docPath is null");
+        if(indexPath == null) {
+            throw new IllegalArgumentException("indexPath is null");
         }
         
         initialize(new File(docPath), new File(indexPath));
@@ -89,7 +89,7 @@ public class Indexer {
         Date start = new Date();
         
         Directory dir = FSDirectory.open(this.indexPath); 
-        Analyzer analyzer = new KmerAnalyzer(20);
+        Analyzer analyzer = new KmerAnalyzer(IndexConstants.KMERSIZE);
         IndexWriterConfig config = new IndexWriterConfig(Version.LUCENE_40, analyzer); 
 
         config.setOpenMode(IndexWriterConfig.OpenMode.CREATE_OR_APPEND);
@@ -123,7 +123,7 @@ public class Indexer {
         while((read = reader.readNext()) != null) {
             Document doc = new Document();
             
-            Field filenameField = new StringField("filename", fastaDoc.getName(), Field.Store.YES);
+            Field filenameField = new StringField(IndexConstants.FIELD_FILENAME, fastaDoc.getName(), Field.Store.YES);
             //LOG.debug("filename: " + fastaDoc.getName()); 
             doc.add(filenameField); 
             
@@ -133,11 +133,11 @@ public class Indexer {
                 headerLine = headerLine.substring(1);
             }
             
-            doc.add(new StringField("header", headerLine, Field.Store.YES));
+            doc.add(new StringField(IndexConstants.FIELD_HEADER, headerLine, Field.Store.YES));
             
             String sequence = read.getSequence();
             //LOG.debug("sequence: " + sequence); 
-            doc.add(new TextField("sequence", sequence, Field.Store.NO));
+            doc.add(new TextField(IndexConstants.FIELD_SEQUENCE, sequence, Field.Store.NO));
             
             //if(writer.getConfig().getOpenMode() == IndexWriterConfig.OpenMode.CREATE) {
                 writer.addDocument(doc);
