@@ -15,6 +15,7 @@
  */
 package biospectra.utils;
 
+import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.util.zip.GZIPInputStream;
@@ -30,7 +31,7 @@ public class FastaFileReader {
         
         if(filter.accept(fastaDoc)) {
             // compressed
-            return FASTAReader.getInstance(new GZIPInputStream(new FileInputStream(fastaDoc)));
+            return FASTAReader.getInstance(new BufferedInputStream(new GZIPInputStream(new FileInputStream(fastaDoc))));
         } else {
             // plain
             return FASTAReader.getInstance(fastaDoc);

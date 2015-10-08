@@ -18,20 +18,17 @@ package biospectra;
 import biospectra.utils.FastaFileFinder;
 import biospectra.utils.FastaFileReader;
 import java.io.File;
-import java.io.Reader;
 import java.util.Date;
 import java.util.List;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.lucene.analysis.Analyzer;
-import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.Field;
 import org.apache.lucene.document.StringField;
 import org.apache.lucene.document.TextField;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
-import org.apache.lucene.index.Term;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.FSDirectory;
 import org.apache.lucene.util.Version;
@@ -140,7 +137,7 @@ public class Indexer {
             
             String sequence = read.getSequence();
             //LOG.debug("sequence: " + sequence); 
-            doc.add(new TextField("sequence", sequence, Field.Store.YES));
+            doc.add(new TextField("sequence", sequence, Field.Store.NO));
             
             //if(writer.getConfig().getOpenMode() == IndexWriterConfig.OpenMode.CREATE) {
                 writer.addDocument(doc);

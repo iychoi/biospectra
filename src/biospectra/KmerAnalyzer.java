@@ -18,9 +18,7 @@ package biospectra;
 import java.io.Reader;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.Tokenizer;
-import org.apache.lucene.analysis.core.LowerCaseFilter;
 import org.apache.lucene.analysis.ngram.NGramTokenizer;
-import org.apache.lucene.util.Version;
 
 /**
  *
@@ -36,7 +34,9 @@ public class KmerAnalyzer extends Analyzer {
     @Override
     protected TokenStreamComponents createComponents(String fieldName, Reader reader) {
         Tokenizer tokenizer = new NGramTokenizer(reader, this.k, this.k);
-        LowerCaseFilter filter = new LowerCaseFilter(Version.LUCENE_40, tokenizer);
+        // use lower sequence form (forward / reverse complement)
+        // use compression make 1/3 of size
+        LowerSequenceFormFilter filter = new LowerSequenceFormFilter(tokenizer, true);
         return new TokenStreamComponents(tokenizer, filter);
     }
 }

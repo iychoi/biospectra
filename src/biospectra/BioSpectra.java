@@ -39,7 +39,7 @@ public class BioSpectra {
      */
     public static void main(String[] args) throws Exception {
         search(args);
-    }    
+    }
 
     private static void index(String[] args) throws Exception {
         Indexer indexer = new Indexer("samples", "indices");
@@ -50,7 +50,8 @@ public class BioSpectra {
     private static void search(String[] args) throws Exception {
         String index = "indices";
         String field = "sequence";
-        String queryString = "CACGGCTAGGTGGAAAGATTGGCCGTGCCCTCAATCAGATTTTCAACTCTACAA";
+        //String queryString = "CACGGCTAGGTGGAAAGATT";
+        String queryString = "AATCTTTCCACCTAGCCGTG";
         
         Analyzer analyzer = new KmerAnalyzer(20);
         Query q = new QueryParser(Version.LUCENE_40, field, analyzer).parse(queryString);
