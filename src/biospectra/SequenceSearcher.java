@@ -25,6 +25,13 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.lucene.analysis.Analyzer;
@@ -53,8 +60,7 @@ public class SequenceSearcher implements Closeable {
     private Analyzer analyzer;
     private IndexReader indexReader;
     private IndexSearcher indexSearcher;
-    private QueryParser queryParser;
-
+    
     public SequenceSearcher(String indexPath) throws Exception {
         if(indexPath == null) {
             throw new IllegalArgumentException("indexPath is null");
@@ -77,7 +83,6 @@ public class SequenceSearcher implements Closeable {
         Directory dir = new NIOFSDirectory(this.indexPath); 
         this.indexReader = DirectoryReader.open(dir);
         this.indexSearcher = new IndexSearcher(this.indexReader);
-        this.queryParser = new QueryParser(Version.LUCENE_40, IndexConstants.FIELD_SEQUENCE, this.analyzer);
     }
     
     public List<SearchResult> search(String sequence) throws Exception {
@@ -85,7 +90,8 @@ public class SequenceSearcher implements Closeable {
             throw new IllegalArgumentException("sequence is null or empty");
         }
         
-        Query q = this.queryParser.parse(sequence);
+        QueryParser queryParser = new QueryParser(Version.LUCENE_40, IndexConstants.FIELD_SEQUENCE, this.analyzer);
+        Query q = queryParser.parse(sequence);
         
         int hitsPerPage = 10;
         TopScoreDocCollector collector = TopScoreDocCollector.create(hitsPerPage, true);
@@ -134,22 +140,76 @@ public class SequenceSearcher implements Closeable {
         FASTAEntry read = null;
 
         FileWriter fw = new FileWriter(classifyOutput, false);
-        BufferedWriter bw = new BufferedWriter(fw);
+        final BufferedWriter bw = new BufferedWriter(fw, 1024*1024);
 
-        BulkSearchResultSummary summary = new BulkSearchResultSummary();
+        final BulkSearchResultSummary summary = new BulkSearchResultSummary();
 
+        int threads = 4;
+        int queueSize = 1000;
+        ExecutorService executor = new ThreadPoolExecutor(threads, queueSize, 5000L, TimeUnit.MILLISECONDS, 
+                new ArrayBlockingQueue<Runnable>(queueSize, true), 
+                new ThreadPoolExecutor.CallerRunsPolicy());
+        
+        long n = 0;
         while((read = reader.readNext()) != null) {
-            String sequence = read.getSequence();
+            final String sequence = read.getSequence();
 
-            List<SearchResult> result = search(sequence);
-            BulkSearchResult bresult = new BulkSearchResult(sequence, result);
-            JsonSerializer serializer = new JsonSerializer();
-            String json = serializer.toJson(bresult);
+            Runnable worker = new Runnable() {
 
-            bw.write(json + "\n");
+                @Override
+                public void run() {
+                    try {
+                        QueryParser queryParser = new QueryParser(Version.LUCENE_40, IndexConstants.FIELD_SEQUENCE, analyzer);
+                        Query q = queryParser.parse(sequence);
+                        
+                        int hitsPerPage = 10;
+                        TopScoreDocCollector collector = TopScoreDocCollector.create(hitsPerPage, true);
+                        indexSearcher.search(q, collector);
+                        ScoreDoc[] hits = collector.topDocs().scoreDocs;
+                        
+                        BulkSearchResult bresult = null;
+                        if(hits.length > 0) {
+                            List<SearchResult> resultArr = new ArrayList<SearchResult>();
 
-            summary.report(bresult);
+                            double topscore = 0;
+                            for(int i=0;i<hits.length;++i) {
+                                if (i == 0) {
+                                    topscore = hits[i].score;
+                                }
+
+                                if(topscore - hits[i].score <= 1) {
+                                    int docId = hits[i].doc;
+                                    Document d = indexSearcher.doc(docId);
+                                    SearchResult result = new SearchResult(docId, d, i, hits[i].score);
+                                    resultArr.add(result);
+                                }
+                            }
+                            
+                            bresult = new BulkSearchResult(sequence, resultArr);
+                        } else {
+                            bresult = new BulkSearchResult(sequence, null);
+                        }
+                        
+                        JsonSerializer serializer = new JsonSerializer();
+                        String json = serializer.toJson(bresult);
+                        
+                        synchronized(summary) {
+                            summary.report(bresult);
+                        }
+                        synchronized(bw) {
+                            bw.write(json + "\n");
+                        }
+                    } catch (Exception ex) {
+                        LOG.error(ex);
+                    }
+                }
+            };
+            executor.submit(worker);
+            //System.out.println("worker" + n + " submitted");
+            n++;
         }
+        executor.shutdown();
+        executor.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
 
         bw.close();
 

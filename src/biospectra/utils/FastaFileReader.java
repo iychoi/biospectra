@@ -31,10 +31,10 @@ public class FastaFileReader {
         
         if(filter.accept(fastaDoc)) {
             // compressed
-            return FASTAReader.getInstance(new BufferedInputStream(new GZIPInputStream(new FileInputStream(fastaDoc))));
+            return FASTAReader.getInstance(new BufferedInputStream(new GZIPInputStream(new BufferedInputStream(new FileInputStream(fastaDoc), 1024*1024)), 1024*1024));
         } else {
             // plain
-            return FASTAReader.getInstance(fastaDoc);
+            return FASTAReader.getInstance(new BufferedInputStream(new FileInputStream(fastaDoc), 1024*1024));
         }
     }
 }

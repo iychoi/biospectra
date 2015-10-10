@@ -41,8 +41,12 @@ public class BulkSearchResult {
             
     public BulkSearchResult(String query, List<SearchResult> result) {
         this.query = query;
-        this.result.addAll(result);
-        this.type = determineType(result);
+        if(result != null) {
+            this.result.addAll(result);
+            this.type = determineType(result);
+        } else {
+            this.type = SearchResultType.UNKNOWN;
+        }
     }
     
     @JsonIgnore
