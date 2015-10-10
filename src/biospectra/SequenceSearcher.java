@@ -27,11 +27,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.lucene.analysis.Analyzer;
@@ -42,9 +39,10 @@ import org.apache.lucene.queryparser.classic.QueryParser;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.ScoreDoc;
+import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.search.TopScoreDocCollector;
 import org.apache.lucene.store.Directory;
-import org.apache.lucene.store.NIOFSDirectory;
+import org.apache.lucene.store.MMapDirectory;
 import org.apache.lucene.util.Version;
 import org.yeastrc.fasta.FASTAEntry;
 import org.yeastrc.fasta.FASTAReader;
@@ -80,7 +78,7 @@ public class SequenceSearcher implements Closeable {
         
         this.indexPath = indexPath;
         this.analyzer = new KmerAnalyzer(IndexConstants.KMERSIZE);
-        Directory dir = new NIOFSDirectory(this.indexPath); 
+        Directory dir = new MMapDirectory(this.indexPath); 
         this.indexReader = DirectoryReader.open(dir);
         this.indexSearcher = new IndexSearcher(this.indexReader);
     }
@@ -96,16 +94,13 @@ public class SequenceSearcher implements Closeable {
         int hitsPerPage = 10;
         TopScoreDocCollector collector = TopScoreDocCollector.create(hitsPerPage, true);
         this.indexSearcher.search(q, collector);
-        ScoreDoc[] hits = collector.topDocs().scoreDocs;
+        TopDocs topdocs = collector.topDocs();
+        ScoreDoc[] hits = topdocs.scoreDocs;
         
         List<SearchResult> resultArr = new ArrayList<SearchResult>();
         
-        double topscore = 0;
+        double topscore = topdocs.getMaxScore();
         for(int i=0;i<hits.length;++i) {
-            if (i == 0) {
-                topscore = hits[i].score;
-            }
-            
             if(topscore - hits[i].score <= 1) {
                 int docId = hits[i].doc;
                 Document d = this.indexSearcher.doc(docId);
@@ -165,18 +160,15 @@ public class SequenceSearcher implements Closeable {
                         int hitsPerPage = 10;
                         TopScoreDocCollector collector = TopScoreDocCollector.create(hitsPerPage, true);
                         indexSearcher.search(q, collector);
-                        ScoreDoc[] hits = collector.topDocs().scoreDocs;
+                        TopDocs topdocs = collector.topDocs();
+                        ScoreDoc[] hits = topdocs.scoreDocs;
                         
                         BulkSearchResult bresult = null;
                         if(hits.length > 0) {
                             List<SearchResult> resultArr = new ArrayList<SearchResult>();
 
-                            double topscore = 0;
+                            double topscore = topdocs.getMaxScore();
                             for(int i=0;i<hits.length;++i) {
-                                if (i == 0) {
-                                    topscore = hits[i].score;
-                                }
-
                                 if(topscore - hits[i].score <= 1) {
                                     int docId = hits[i].doc;
                                     Document d = indexSearcher.doc(docId);
