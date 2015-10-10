@@ -101,9 +101,14 @@ public class BioSpectra {
             FASTAReader reader = FastaFileReader.getFASTAReader(fastaDoc);
             FASTAEntry read = null;
             
-            File resultOutput = new File(outputDir + "/" + fastaDoc.getName());
+            File resultOutput = new File(outputDir + "/" + fastaDoc.getName() + ".result");
             FileWriter fw = new FileWriter(resultOutput, false);
             BufferedWriter bw = new BufferedWriter(fw);
+            
+            int totalReads = 0;
+            int classifiedReads = 0;
+            int vagueReads = 0;
+            int unknownReads = 0;
         
             while((read = reader.readNext()) != null) {
                 String sequence = read.getSequence();
@@ -114,12 +119,33 @@ public class BioSpectra {
                 String json = serializer.toJson(bresult);
                 
                 bw.write(json + "\n");
+                
+                totalReads++;
+                switch(bresult.getType()) {
+                    case VAGUE:
+                        vagueReads++;
+                        break;
+                    case UNKNOWN:
+                        unknownReads++;
+                        break;
+                    case CLASSIFIED:
+                        classifiedReads++;
+                        break;
+                }
             }
             
             bw.close();
             
             Date end = new Date(); 
             LOG.info("searching " + fastaDoc.getAbsolutePath() + " finished - " + (end.getTime() - start.getTime()) + " total milliseconds");
+            
+            File sumResultOutput = new File(outputDir + "/" + fastaDoc.getName() + ".result.sum");
+            FileWriter fws = new FileWriter(sumResultOutput, false);
+            fws.write("total : " + totalReads + "\n");
+            fws.write("classified : " + classifiedReads + "\n");
+            fws.write("vague : " + vagueReads + "\n");
+            fws.write("unknown : " + unknownReads + "\n");
+            fws.close();
         }
     }
 }
