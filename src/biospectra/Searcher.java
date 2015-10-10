@@ -15,8 +15,11 @@
  */
 package biospectra;
 
+import biospectra.lucene.KmerAnalyzer;
 import java.io.File;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.lucene.analysis.Analyzer;
@@ -70,11 +73,11 @@ public class Searcher {
         this.indexPath = indexPath;
     }
     
-    public void search(String field, String queryString) throws Exception {
-        LOG.info("searching...");
-        
-        Date start = new Date();
-        
+    public List<SearchResult> search(String queryString) throws Exception {
+        return search(IndexConstants.FIELD_SEQUENCE, queryString);
+    }
+    
+    public List<SearchResult> search(String field, String queryString) throws Exception {
         Analyzer analyzer = new KmerAnalyzer(IndexConstants.KMERSIZE);
         Query q = new QueryParser(Version.LUCENE_40, field, analyzer).parse(queryString);
         
@@ -87,17 +90,22 @@ public class Searcher {
         searcher.search(q, collector);
         ScoreDoc[] hits = collector.topDocs().scoreDocs;
         
-        System.out.println("Found " + hits.length + " hits.");
+        List<SearchResult> resultArr = new ArrayList<SearchResult>();
+        
+        double topscore = 0;
         for(int i=0;i<hits.length;++i) {
-             int docId = hits[i].doc;
-             Document d = searcher.doc(docId);
-             System.out.println((i + 1) + ". - filename: " + d.get(IndexConstants.FIELD_FILENAME));
-             System.out.println("header > " + d.get(IndexConstants.FIELD_HEADER));
-             System.out.println("score > " + hits[i].score);
+            if (i == 0) {
+                topscore = hits[i].score;
+            }
+            
+            if(topscore - hits[i].score <= 1) {
+                int docId = hits[i].doc;
+                Document d = searcher.doc(docId);
+                SearchResult result = new SearchResult(docId, d, i, hits[i].score);
+                resultArr.add(result);
+            }
         }
         
-        Date end = new Date(); 
-        
-        LOG.info("searching finished - " + (end.getTime() - start.getTime()) + " total milliseconds");
+        return resultArr;
     }
 }

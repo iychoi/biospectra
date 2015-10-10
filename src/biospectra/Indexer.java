@@ -15,6 +15,7 @@
  */
 package biospectra;
 
+import biospectra.lucene.KmerAnalyzer;
 import biospectra.utils.FastaFileFinder;
 import biospectra.utils.FastaFileReader;
 import java.io.File;
@@ -84,10 +85,6 @@ public class Indexer {
     }
     
     public void index() throws Exception {
-        LOG.info("indexing...");
-        
-        Date start = new Date();
-        
         Directory dir = FSDirectory.open(this.indexPath); 
         Analyzer analyzer = new KmerAnalyzer(IndexConstants.KMERSIZE);
         IndexWriterConfig config = new IndexWriterConfig(Version.LUCENE_40, analyzer); 
@@ -100,10 +97,6 @@ public class Indexer {
             indexDocs(writer, fastaDoc);
         }
         writer.close();
-        
-        Date end = new Date(); 
-        
-        LOG.info("indexing finished - " + (end.getTime() - start.getTime()) + " total milliseconds");
     }
     
     private void indexDocs(IndexWriter writer, File fastaDoc) throws Exception {

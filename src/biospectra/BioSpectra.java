@@ -15,31 +15,111 @@
  */
 package biospectra;
 
+import biospectra.utils.FastaFileFinder;
+import biospectra.utils.FastaFileReader;
+import biospectra.utils.JsonSerializer;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileWriter;
+import java.util.Date;
+import java.util.List;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+import org.yeastrc.fasta.FASTAEntry;
+import org.yeastrc.fasta.FASTAReader;
+
 /**
  *
  * @author iychoi
  */
 public class BioSpectra {
 
+    private static final Log LOG = LogFactory.getLog(BioSpectra.class);
+    
     /**
      * @param args the command line arguments
      */
     public static void main(String[] args) throws Exception {
-        if(args[0].equalsIgnoreCase("i") || args[0].equalsIgnoreCase("index")) {
+        String op = args[0];
+        if(op.equalsIgnoreCase("i") || op.equalsIgnoreCase("index")) {
             index(args);
-        } else if(args[0].equalsIgnoreCase("s") || args[0].equalsIgnoreCase("search")) {
+        } else if(op.equalsIgnoreCase("s") || op.equalsIgnoreCase("search")) {
             search(args);
+        } else if(op.equalsIgnoreCase("bs") || op.equalsIgnoreCase("bsearch")) {
+            bulksearch(args);
         }
     }
 
     private static void index(String[] args) throws Exception {
-        Indexer indexer = new Indexer(args[1], args[2]);
+        String referenceDir = args[1];
+        String indexDir = args[2];
+        
+        Date start = new Date(); 
+        
+        Indexer indexer = new Indexer(referenceDir, indexDir);
         indexer.index();
+        
+        Date end = new Date(); 
+        LOG.info("indexing finished - " + (end.getTime() - start.getTime()) + " total milliseconds");
     }
     
     private static void search(String[] args) throws Exception {
-        Searcher searcher = new Searcher(args[1]);
+        String indexDir = args[1];
+        String field = args[2];
+        String query = args[3];
         
-        searcher.search(args[2], args[3]);
+        Searcher searcher = new Searcher(indexDir);
+        
+        Date start = new Date(); 
+        
+        List<SearchResult> result = searcher.search(field, query);
+        
+        Date end = new Date(); 
+        LOG.info("searching finished - " + (end.getTime() - start.getTime()) + " total milliseconds");
+            
+        for(SearchResult r : result) {
+            System.out.println(r.toString());
+        }
+    }
+    
+    private static void bulksearch(String[] args) throws Exception {
+        String indexDir = args[1];
+        String inputDir = args[2];
+        String outputDir = args[3];
+        
+        Searcher searcher = new Searcher(indexDir);
+        
+        File output = new File(outputDir);
+        if(!output.exists()) {
+            output.mkdirs();
+        }
+        
+        List<File> fastaDocs = FastaFileFinder.findFastaDocs(inputDir);
+        for(File fastaDoc : fastaDocs) {
+            Date start = new Date(); 
+            
+            FASTAReader reader = FastaFileReader.getFASTAReader(fastaDoc);
+            FASTAEntry read = null;
+            
+            File resultOutput = new File(outputDir + "/" + fastaDoc.getName());
+            FileWriter fw = new FileWriter(resultOutput, false);
+            BufferedWriter bw = new BufferedWriter(fw);
+        
+            while((read = reader.readNext()) != null) {
+                String sequence = read.getSequence();
+                
+                List<SearchResult> result = searcher.search(sequence);
+                BulkSearchResult bresult = new BulkSearchResult(sequence, result);
+                JsonSerializer serializer = new JsonSerializer();
+                String json = serializer.toJson(bresult);
+                
+                bw.write(json + "\n");
+            }
+            
+            bw.close();
+            
+            Date end = new Date(); 
+            LOG.info("searching " + fastaDoc.getAbsolutePath() + " finished - " + (end.getTime() - start.getTime()) + " total milliseconds");
+        }
     }
 }
