@@ -16,17 +16,11 @@
 package biospectra;
 
 import biospectra.utils.FastaFileFinder;
-import biospectra.utils.FastaFileReader;
-import biospectra.utils.JsonSerializer;
-import java.io.BufferedWriter;
 import java.io.File;
-import java.io.FileWriter;
 import java.util.Date;
 import java.util.List;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.yeastrc.fasta.FASTAEntry;
-import org.yeastrc.fasta.FASTAReader;
 
 /**
  *
@@ -54,25 +48,31 @@ public class BioSpectra {
         String referenceDir = args[1];
         String indexDir = args[2];
         
-        Date start = new Date(); 
+        Indexer indexer = new Indexer(indexDir);
         
-        Indexer indexer = new Indexer(referenceDir, indexDir);
-        indexer.index();
+        List<File> refereneFiles = FastaFileFinder.findFastaDocs(referenceDir);
+        for(File fastaDoc : refereneFiles) {
+            LOG.info("indexing " + fastaDoc.getAbsolutePath() + " started");
+            Date start = new Date();
+            
+            indexer.index(fastaDoc);
+            
+            Date end = new Date(); 
+            LOG.info("indexing " + fastaDoc.getAbsolutePath() + " finished - " + (end.getTime() - start.getTime()) + " total milliseconds");
+        }
         
-        Date end = new Date(); 
-        LOG.info("indexing finished - " + (end.getTime() - start.getTime()) + " total milliseconds");
+        indexer.close();
     }
     
     private static void search(String[] args) throws Exception {
         String indexDir = args[1];
-        String field = args[2];
-        String query = args[3];
+        String query = args[2];
         
-        Searcher searcher = new Searcher(indexDir);
+        SequenceSearcher searcher = new SequenceSearcher(indexDir);
         
         Date start = new Date(); 
         
-        List<SearchResult> result = searcher.search(field, query);
+        List<SearchResult> result = searcher.search(query);
         
         Date end = new Date(); 
         LOG.info("searching finished - " + (end.getTime() - start.getTime()) + " total milliseconds");
@@ -80,6 +80,8 @@ public class BioSpectra {
         for(SearchResult r : result) {
             System.out.println(r.toString());
         }
+        
+        searcher.close();
     }
     
     private static void bulksearch(String[] args) throws Exception {
@@ -87,7 +89,7 @@ public class BioSpectra {
         String inputDir = args[2];
         String outputDir = args[3];
         
-        Searcher searcher = new Searcher(indexDir);
+        SequenceSearcher searcher = new SequenceSearcher(indexDir);
         
         File output = new File(outputDir);
         if(!output.exists()) {
@@ -96,56 +98,17 @@ public class BioSpectra {
         
         List<File> fastaDocs = FastaFileFinder.findFastaDocs(inputDir);
         for(File fastaDoc : fastaDocs) {
+            LOG.info("searching " + fastaDoc.getAbsolutePath() + " started");
             Date start = new Date(); 
             
-            FASTAReader reader = FastaFileReader.getFASTAReader(fastaDoc);
-            FASTAEntry read = null;
-            
             File resultOutput = new File(outputDir + "/" + fastaDoc.getName() + ".result");
-            FileWriter fw = new FileWriter(resultOutput, false);
-            BufferedWriter bw = new BufferedWriter(fw);
-            
-            int totalReads = 0;
-            int classifiedReads = 0;
-            int vagueReads = 0;
-            int unknownReads = 0;
-        
-            while((read = reader.readNext()) != null) {
-                String sequence = read.getSequence();
-                
-                List<SearchResult> result = searcher.search(sequence);
-                BulkSearchResult bresult = new BulkSearchResult(sequence, result);
-                JsonSerializer serializer = new JsonSerializer();
-                String json = serializer.toJson(bresult);
-                
-                bw.write(json + "\n");
-                
-                totalReads++;
-                switch(bresult.getType()) {
-                    case VAGUE:
-                        vagueReads++;
-                        break;
-                    case UNKNOWN:
-                        unknownReads++;
-                        break;
-                    case CLASSIFIED:
-                        classifiedReads++;
-                        break;
-                }
-            }
-            
-            bw.close();
+            File sumResultOutput = new File(outputDir + "/" + fastaDoc.getName() + ".result.sum");
+            searcher.bulkSearch(fastaDoc, resultOutput, sumResultOutput);
             
             Date end = new Date(); 
             LOG.info("searching " + fastaDoc.getAbsolutePath() + " finished - " + (end.getTime() - start.getTime()) + " total milliseconds");
-            
-            File sumResultOutput = new File(outputDir + "/" + fastaDoc.getName() + ".result.sum");
-            FileWriter fws = new FileWriter(sumResultOutput, false);
-            fws.write("total : " + totalReads + "\n");
-            fws.write("classified : " + classifiedReads + "\n");
-            fws.write("vague : " + vagueReads + "\n");
-            fws.write("unknown : " + unknownReads + "\n");
-            fws.close();
         }
+        
+        searcher.close();
     }
 }
