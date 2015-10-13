@@ -132,10 +132,10 @@ public class KmerSequenceTokenizer extends Tokenizer {
             if(!drop) {
                 this.termAtt.setEmpty().append(this.inStr, oldPos, oldPos + this.kmerSize);
                 this.offsetAtt.setOffset(correctOffset(oldPos), correctOffset(oldPos + this.kmerSize));
-                break;
+                return true;
             }
         }
-        return true;
+        return false;
     }
     
     @Override
