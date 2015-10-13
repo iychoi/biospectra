@@ -44,10 +44,14 @@ public class FastaFileFinder {
                 docs.add(file);
             }
         } else {
-            File[] files = file.listFiles(filter);
+            File[] files = file.listFiles();
             for(File f : files) {
                 if(f.isFile()) {
-                    docs.add(f);
+                    if(filter.accept(f)) {
+                        docs.add(f);
+                    }
+                } else {
+                    docs.addAll(findFastaDocs(f));
                 }
             }
         }
