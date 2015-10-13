@@ -16,6 +16,7 @@
 package biospectra;
 
 import biospectra.lucene.KmerAnalyzer;
+import biospectra.lucene.KmerQueryAnalyzer;
 import biospectra.utils.FastaFileReader;
 import biospectra.utils.JsonSerializer;
 import java.io.BufferedWriter;
@@ -24,6 +25,7 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
@@ -36,6 +38,7 @@ import org.apache.lucene.document.Document;
 import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.queryparser.classic.QueryParser;
+import org.apache.lucene.search.BooleanQuery;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.ScoreDoc;
@@ -77,7 +80,7 @@ public class SequenceSearcher implements Closeable {
         }
         
         this.indexPath = indexPath;
-        this.analyzer = new KmerAnalyzer(IndexConstants.KMERSIZE);
+        this.analyzer = new KmerQueryAnalyzer(IndexConstants.KMERSIZE, IndexConstants.KMERSIZE/2);
         Directory dir = new MMapDirectory(this.indexPath); 
         this.indexReader = DirectoryReader.open(dir);
         this.indexSearcher = new IndexSearcher(this.indexReader);
@@ -138,6 +141,8 @@ public class SequenceSearcher implements Closeable {
         final BufferedWriter bw = new BufferedWriter(fw, 1024*1024);
 
         final BulkSearchResultSummary summary = new BulkSearchResultSummary();
+        summary.setQueryFilename(inputFasta.getName());
+        summary.setStartTime(new Date());
 
         int threads = 4;
         int queueSize = 1000;
@@ -156,6 +161,12 @@ public class SequenceSearcher implements Closeable {
                     try {
                         QueryParser queryParser = new QueryParser(Version.LUCENE_40, IndexConstants.FIELD_SEQUENCE, analyzer);
                         Query q = queryParser.parse(sequence);
+                        if(q instanceof BooleanQuery) {
+                            BooleanQuery bq = (BooleanQuery)q;
+                            
+                            // 50% should match
+                            bq.setMinimumNumberShouldMatch(bq.clauses().size() / 2);
+                        }
                         
                         int hitsPerPage = 10;
                         TopScoreDocCollector collector = TopScoreDocCollector.create(hitsPerPage, true);
@@ -205,6 +216,9 @@ public class SequenceSearcher implements Closeable {
 
         bw.close();
 
+        summary.setEndTime(new Date());
+        LOG.info("bulk searching of " + summary.getQueryFilename() + " finished in " + summary.getTimeTaken() + " millisec");
+        
         if(summaryOutput != null) {
             summary.saveTo(summaryOutput);
         }

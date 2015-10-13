@@ -18,6 +18,7 @@ package biospectra;
 import biospectra.utils.JsonSerializer;
 import java.io.File;
 import java.io.IOException;
+import java.util.Date;
 import org.codehaus.jackson.annotate.JsonIgnore;
 import org.codehaus.jackson.annotate.JsonProperty;
 
@@ -26,13 +27,51 @@ import org.codehaus.jackson.annotate.JsonProperty;
  * @author iychoi
  */
 public class BulkSearchResultSummary {
+    private String queryFilename;
     private long total;
     private long unknown;
     private long vague;
     private long classified;
+    private Date startTime;
+    private Date endTime;
     
     public BulkSearchResultSummary() {
         
+    }
+    
+    @JsonProperty("query_filename")
+    public String getQueryFilename() {
+        return queryFilename;
+    }
+
+    @JsonProperty("query_filename")
+    public void setQueryFilename(String queryFilename) {
+        this.queryFilename = queryFilename;
+    }
+    
+    @JsonProperty("start_time")
+    public Date getStartTime() {
+        return this.startTime;
+    }
+    
+    @JsonProperty("start_time")
+    public void setStartTime(Date startTime) {
+        this.startTime = startTime;
+    }
+    
+    @JsonProperty("end_time")
+    public Date getEndTime() {
+        return this.endTime;
+    }
+    
+    @JsonProperty("end_time")
+    public void setEndTime(Date endTime) {
+        this.endTime = endTime;
+    }
+    
+    @JsonIgnore
+    public long getTimeTaken() {
+        return this.endTime.getTime() - this.startTime.getTime();
     }
     
     @JsonProperty("total")

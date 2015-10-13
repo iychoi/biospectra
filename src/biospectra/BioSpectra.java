@@ -98,15 +98,9 @@ public class BioSpectra {
         
         List<File> fastaDocs = FastaFileFinder.findFastaDocs(inputDir);
         for(File fastaDoc : fastaDocs) {
-            LOG.info("searching " + fastaDoc.getAbsolutePath() + " started");
-            Date start = new Date(); 
-            
             File resultOutput = new File(outputDir + "/" + fastaDoc.getName() + ".result");
             File sumResultOutput = new File(outputDir + "/" + fastaDoc.getName() + ".result.sum");
             searcher.bulkSearch(fastaDoc, resultOutput, sumResultOutput);
-            
-            Date end = new Date(); 
-            LOG.info("searching " + fastaDoc.getAbsolutePath() + " finished - " + (end.getTime() - start.getTime()) + " total milliseconds");
         }
         
         searcher.close();

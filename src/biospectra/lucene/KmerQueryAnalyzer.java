@@ -23,16 +23,18 @@ import org.apache.lucene.analysis.Tokenizer;
  *
  * @author iychoi
  */
-public class KmerAnalyzer extends Analyzer {
+public class KmerQueryAnalyzer extends Analyzer {
     private int k;
+    private int skips;
 
-    public KmerAnalyzer(int k) {
+    public KmerQueryAnalyzer(int k, int skips) {
         this.k = k;
+        this.skips = skips;
     }
     
     @Override
     protected TokenStreamComponents createComponents(String fieldName, Reader reader) {
-        Tokenizer tokenizer = new KmerTokenizer(reader, this.k, 0);
+        Tokenizer tokenizer = new KmerTokenizer(reader, this.k, this.skips);
         // use lower sequence form (forward / reverse complement)
         // use compression make 1/3 of size
         LowerSequenceFormFilter filter = new LowerSequenceFormFilter(tokenizer, true);
