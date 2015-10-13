@@ -26,7 +26,7 @@ import org.apache.lucene.util.AttributeSource;
  *
  * @author iychoi
  */
-public class KmerTokenizer extends Tokenizer {
+public class KmerSequenceTokenizer extends Tokenizer {
 
     public static final int DEFAULT_KMER_SIZE = 20;
     
@@ -40,22 +40,22 @@ public class KmerTokenizer extends Tokenizer {
     private final CharTermAttribute termAtt = addAttribute(CharTermAttribute.class);
     private final OffsetAttribute offsetAtt = addAttribute(OffsetAttribute.class);
     
-    public KmerTokenizer(Reader input, int kmerSize, int skips) {
+    public KmerSequenceTokenizer(Reader input, int kmerSize, int skips) {
         super(input);
         init(kmerSize, skips);
     }
     
-    public KmerTokenizer(AttributeSource source, Reader input, int kmerSize, int skips) {
+    public KmerSequenceTokenizer(AttributeSource source, Reader input, int kmerSize, int skips) {
         super(source, input);
         init(kmerSize, skips);
     }
     
-    public KmerTokenizer(AttributeFactory factory, Reader input, int kmerSize, int skips) {
+    public KmerSequenceTokenizer(AttributeFactory factory, Reader input, int kmerSize, int skips) {
         super(factory, input);
         init(kmerSize, skips);
     }
     
-    public KmerTokenizer(Reader input) {
+    public KmerSequenceTokenizer(Reader input) {
         this(input, DEFAULT_KMER_SIZE, 0);
     }
     
@@ -114,10 +114,27 @@ public class KmerTokenizer extends Tokenizer {
             return false;
         }
         
-        int oldPos = this.pos;
-        this.pos += 1 + this.skips;
-        this.termAtt.setEmpty().append(this.inStr, oldPos, oldPos + kmerSize);
-        this.offsetAtt.setOffset(correctOffset(oldPos), correctOffset(oldPos + kmerSize));
+        int curSkip = this.skips;
+        while(true) {
+            boolean drop = false;
+            int oldPos = this.pos;
+            this.pos += 1 + curSkip;
+            for(int i=oldPos;i<oldPos + this.kmerSize;i++) {
+                if(this.inStr.charAt(i) != 'A' && this.inStr.charAt(i) != 'T' && 
+                        this.inStr.charAt(i) != 'G' && this.inStr.charAt(i) != 'C') {
+                    // wildcard found
+                    drop = true;
+                    curSkip = 0;
+                    break;
+                }
+            }
+            
+            if(!drop) {
+                this.termAtt.setEmpty().append(this.inStr, oldPos, oldPos + this.kmerSize);
+                this.offsetAtt.setOffset(correctOffset(oldPos), correctOffset(oldPos + this.kmerSize));
+                break;
+            }
+        }
         return true;
     }
     

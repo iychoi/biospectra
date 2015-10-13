@@ -34,7 +34,7 @@ public class KmerQueryAnalyzer extends Analyzer {
     
     @Override
     protected TokenStreamComponents createComponents(String fieldName, Reader reader) {
-        Tokenizer tokenizer = new KmerTokenizer(reader, this.k, this.skips);
+        Tokenizer tokenizer = new KmerSequenceTokenizer(reader, this.k, this.skips);
         // use lower sequence form (forward / reverse complement)
         // use compression make 1/3 of size
         LowerSequenceFormFilter filter = new LowerSequenceFormFilter(tokenizer, true);

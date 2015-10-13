@@ -18,6 +18,8 @@ package biospectra.lucene;
 import biospectra.utils.SequenceHelper;
 import java.io.IOException;
 import org.apache.commons.codec.binary.Base64;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.apache.lucene.analysis.TokenFilter;
 import org.apache.lucene.analysis.TokenStream;
 import org.apache.lucene.analysis.tokenattributes.CharTermAttribute;
@@ -28,6 +30,8 @@ import org.apache.lucene.analysis.tokenattributes.CharTermAttribute;
  */
 public final class LowerSequenceFormFilter extends TokenFilter {
 
+    private static final Log LOG = LogFactory.getLog(LowerSequenceFormFilter.class);
+    
     private final CharTermAttribute termAtt = addAttribute(CharTermAttribute.class);
     private boolean compress = true;
     
@@ -61,7 +65,7 @@ public final class LowerSequenceFormFilter extends TokenFilter {
                 // otherwise, loop
             }
             
-            //System.out.println("ori: " + String.copyValueOf(buffer));
+            //LOG.info("ori: " + String.valueOf(buffer));
             
             if(useReverse) {
                 for(int i=0;i<length;i++) {
@@ -69,7 +73,7 @@ public final class LowerSequenceFormFilter extends TokenFilter {
                 }
             }
             
-            //System.out.println("new: " + String.copyValueOf(buffer));
+            //LOG.info("new: " + String.valueOf(buffer));
             
             if(this.compress) {
                 byte[] compressed = SequenceHelper.compress(buffer, length);
@@ -86,7 +90,7 @@ public final class LowerSequenceFormFilter extends TokenFilter {
                 }
 
                 this.termAtt.setLength(encoded.length);
-                //System.out.println("comp: " + String.copyValueOf(buffer));
+                //System.out.println("comp: " + String.valueOf(buffer));
             }
             return true;
         } else {

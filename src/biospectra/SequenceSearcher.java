@@ -15,7 +15,6 @@
  */
 package biospectra;
 
-import biospectra.lucene.KmerAnalyzer;
 import biospectra.lucene.KmerQueryAnalyzer;
 import biospectra.utils.FastaFileReader;
 import biospectra.utils.JsonSerializer;
