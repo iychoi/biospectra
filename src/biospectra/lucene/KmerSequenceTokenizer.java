@@ -109,13 +109,13 @@ public class KmerSequenceTokenizer extends Tokenizer {
             }
         }
         
-        if (this.pos + this.kmerSize > inLen) {            // if we hit the end of the string
+        if (this.pos + this.kmerSize > this.inLen) {            // if we hit the end of the string
             this.pos = 0;                           // reset to beginning of string
             return false;
         }
         
         int curSkip = this.skips;
-        while(true) {
+        while(this.pos <= this.inLen - this.kmerSize) {
             boolean drop = false;
             int oldPos = this.pos;
             this.pos += 1 + curSkip;
