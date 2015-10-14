@@ -163,7 +163,7 @@ public class KmerSequenceTokenizer extends Tokenizer {
                 this.inBufferOffset += 1 + curSkip;
             }
         }
-        return true;
+        return false;
     }
     
     @Override
