@@ -32,11 +32,11 @@ public class KmerSequenceTokenizer extends Tokenizer {
     
     private int kmerSize;
     private int skips;
-    private int pos;
-    private int inLen; // length of the input AFTER trim()
-    private int charsRead; // length of the input
-    private String inStr;
-    private boolean started;
+    private char[] buffer;
+    private String bufferString;
+    private int inBufferOffset;
+    private int bufferSize;
+    private boolean eof;
     private final CharTermAttribute termAtt = addAttribute(CharTermAttribute.class);
     private final OffsetAttribute offsetAtt = addAttribute(OffsetAttribute.class);
     
@@ -70,58 +70,83 @@ public class KmerSequenceTokenizer extends Tokenizer {
 
         this.kmerSize = kmerSize;
         this.skips = skips;
+        this.bufferSize = 0;
+        this.inBufferOffset = 0;
+        this.eof = false;
+    }
+    
+    private void bufferInput() throws IOException {
+        if (!this.eof) {
+            if(this.bufferSize == 0) {
+                // clean start
+                this.buffer = new char[4096];
+                int newBufferSize = 0;
+                while (newBufferSize < this.buffer.length) {
+                    int inc = this.input.read(this.buffer, newBufferSize, this.buffer.length - newBufferSize);
+                    if (inc == -1) {
+                        this.eof = true;
+                        break;
+                    }
+                    newBufferSize += inc;
+                    this.bufferSize = newBufferSize;
+                }
+                this.bufferString = new String(this.buffer, 0, this.bufferSize);
+            } else {
+                int newBufferSize = this.bufferSize - this.inBufferOffset;
+                char[] newBuffer = new char[4096 + (this.bufferSize - this.inBufferOffset)];
+                System.arraycopy(this.buffer, this.inBufferOffset, newBuffer, 0, (this.bufferSize - this.inBufferOffset));
+                this.buffer = newBuffer;
+                this.bufferSize = 4096 + (this.bufferSize - this.inBufferOffset);
+                this.inBufferOffset = 0;
+                
+                while (newBufferSize < this.buffer.length) {
+                    int inc = this.input.read(this.buffer, newBufferSize, this.buffer.length - newBufferSize);
+                    if (inc == -1) {
+                        this.eof = true;
+                        break;
+                    }
+                    newBufferSize += inc;
+                    this.bufferSize = newBufferSize;
+                }
+                this.bufferString = new String(this.buffer, 0, this.bufferSize);
+            }
+        }
     }
     
     @Override
     public boolean incrementToken() throws IOException {
         clearAttributes();
         
-        if (!this.started) {
-            this.started = true;
-            char[] chars = new char[4096];
-            this.charsRead = 0;
-            
-            while (this.charsRead < chars.length) {
-                int inc = this.input.read(chars, this.charsRead, chars.length - this.charsRead);
-                if (inc == -1) {
-                    break;
-                }
-                this.charsRead += inc;
-            }
-
-            this.inStr = new String(chars, 0, this.charsRead).trim();  // remove any trailing empty strings 
-            if (this.charsRead == chars.length) {
-                // Read extra throwaway chars so that on end() we
-                // report the correct offset:
-                char[] throwaway = new char[1024];
-                while (true) {
-                    final int inc = this.input.read(throwaway, 0, throwaway.length);
-                    if (inc == -1) {
-                        break;
-                    }
-                    this.charsRead += inc;
-                }
-            }
-            
-            this.inLen = this.inStr.length();
-            if (this.inLen == 0) {
+        if(this.inBufferOffset + this.kmerSize > this.bufferSize) {
+            if(!this.eof) {
+                bufferInput();
+            } else {
+                this.buffer = null;
+                this.inBufferOffset = 0;
+                this.bufferSize = 0;
+                this.eof = false;
                 return false;
             }
-        }
-        
-        if (this.pos + this.kmerSize > inLen) {            // if we hit the end of the string
-            this.pos = 0;                           // reset to beginning of string
-            return false;
         }
         
         int curSkip = this.skips;
         while(true) {
             boolean drop = false;
-            int oldPos = this.pos;
-            this.pos += 1 + curSkip;
-            for(int i=oldPos;i<oldPos + this.kmerSize;i++) {
-                if(this.inStr.charAt(i) != 'A' && this.inStr.charAt(i) != 'T' && 
-                        this.inStr.charAt(i) != 'G' && this.inStr.charAt(i) != 'C') {
+            if(this.inBufferOffset + this.kmerSize > this.bufferSize) {
+                if(!this.eof) {
+                    bufferInput();
+                } else {
+                    this.buffer = null;
+                    this.inBufferOffset = 0;
+                    this.bufferSize = 0;
+                    this.eof = false;
+                    return false;
+                }
+            }
+            
+            for(int i=this.inBufferOffset;i<this.inBufferOffset + this.kmerSize;i++) {
+                if(this.buffer[i] != 'A' && this.buffer[i] != 'T' && 
+                        this.buffer[i] != 'G' && this.buffer[i] != 'C') {
                     // wildcard found
                     drop = true;
                     curSkip = 0;
@@ -130,9 +155,12 @@ public class KmerSequenceTokenizer extends Tokenizer {
             }
             
             if(!drop) {
-                this.termAtt.setEmpty().append(this.inStr, oldPos, oldPos + this.kmerSize);
-                this.offsetAtt.setOffset(correctOffset(oldPos), correctOffset(oldPos + this.kmerSize));
+                this.termAtt.setEmpty().append(this.bufferString, this.inBufferOffset, this.inBufferOffset + this.kmerSize);
+                this.offsetAtt.setOffset(correctOffset(this.inBufferOffset), correctOffset(this.inBufferOffset + this.kmerSize));
+                this.inBufferOffset += 1 + curSkip;
                 break;
+            } else {
+                this.inBufferOffset += 1 + curSkip;
             }
         }
         return true;
@@ -140,15 +168,15 @@ public class KmerSequenceTokenizer extends Tokenizer {
     
     @Override
     public void end() {
-        // set final offset
-        final int finalOffset = correctOffset(this.charsRead);
-        this.offsetAtt.setOffset(finalOffset, finalOffset);
     }
     
     @Override
     public void reset() throws IOException {
         super.reset();
-        this.started = false;
-        this.pos = 0;
+        
+        this.buffer = null;
+        this.inBufferOffset = 0;
+        this.bufferSize = 0;
+        this.eof = false;
     }
 }
