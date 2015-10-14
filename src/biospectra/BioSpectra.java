@@ -41,6 +41,8 @@ public class BioSpectra {
             search(args);
         } else if(op.equalsIgnoreCase("bs") || op.equalsIgnoreCase("bsearch")) {
             bulksearch(args);
+        } else if(op.equalsIgnoreCase("u") || op.equalsIgnoreCase("utils")) {
+            indexUtils(args);
         }
     }
 
@@ -104,5 +106,15 @@ public class BioSpectra {
         }
         
         searcher.close();
+    }
+
+    private static void indexUtils(String[] args) throws Exception {
+        String operation = args[1];
+        String indexDir = args[2];
+        
+        IndexUtil util = new IndexUtil(indexDir);
+        if(operation.equalsIgnoreCase("doccount")) {
+            System.out.println("total docs : " + util.countDocs());
+        }
     }
 }
