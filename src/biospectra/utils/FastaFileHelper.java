@@ -84,7 +84,7 @@ public class FastaFileHelper {
                         docs.add(f);
                     }
                 } else {
-                    docs.addAll(findFastaDocs(f));
+                    docs.addAll(findNonFastaDocs(f));
                 }
             }
         }
