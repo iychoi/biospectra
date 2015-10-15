@@ -19,7 +19,10 @@ import java.io.File;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.lucene.index.DirectoryReader;
+import org.apache.lucene.index.Fields;
 import org.apache.lucene.index.IndexReader;
+import org.apache.lucene.index.MultiFields;
+import org.apache.lucene.index.Terms;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.MMapDirectory;
 
@@ -57,5 +60,11 @@ public class IndexUtil {
     
     public int countDocs() throws Exception {
         return this.indexReader.numDocs();
+    }
+    
+    public long countTerms() throws Exception {
+        Fields fields = MultiFields.getFields(this.indexReader);
+        Terms terms = fields.terms(IndexConstants.FIELD_SEQUENCE);
+        return terms.size();
     }
 }

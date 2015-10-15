@@ -111,13 +111,12 @@ public class BioSpectra {
     private static void utils(String[] args) throws Exception {
         String operation = args[1];
         
-        if(operation.equalsIgnoreCase("doccount")) {
+        if(operation.equalsIgnoreCase("index")) {
             String indexDir = args[2];
         
-            IndexUtil util = new IndexUtil(indexDir);
-            if(operation.equalsIgnoreCase("doccount")) {
-                System.out.println("total docs : " + util.countDocs());
-            }
+            IndexUtil indexutil = new IndexUtil(indexDir);
+            System.out.println("total docs : " + indexutil.countDocs());
+            System.out.println("total terms : " + indexutil.countTerms());
         } else if(operation.equalsIgnoreCase("fasta")) {
             String fastaDir = args[2];
         
