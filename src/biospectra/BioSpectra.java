@@ -15,7 +15,7 @@
  */
 package biospectra;
 
-import biospectra.utils.FastaFileFinder;
+import biospectra.utils.FastaFileHelper;
 import java.io.File;
 import java.util.Date;
 import java.util.List;
@@ -42,7 +42,7 @@ public class BioSpectra {
         } else if(op.equalsIgnoreCase("bs") || op.equalsIgnoreCase("bsearch")) {
             bulksearch(args);
         } else if(op.equalsIgnoreCase("u") || op.equalsIgnoreCase("utils")) {
-            indexUtils(args);
+            utils(args);
         }
     }
 
@@ -52,7 +52,7 @@ public class BioSpectra {
         
         Indexer indexer = new Indexer(indexDir);
         
-        List<File> refereneFiles = FastaFileFinder.findFastaDocs(referenceDir);
+        List<File> refereneFiles = FastaFileHelper.findFastaDocs(referenceDir);
         for(File fastaDoc : refereneFiles) {
             LOG.info("indexing " + fastaDoc.getAbsolutePath() + " started");
             Date start = new Date();
@@ -98,7 +98,7 @@ public class BioSpectra {
             output.mkdirs();
         }
         
-        List<File> fastaDocs = FastaFileFinder.findFastaDocs(inputDir);
+        List<File> fastaDocs = FastaFileHelper.findFastaDocs(inputDir);
         for(File fastaDoc : fastaDocs) {
             File resultOutput = new File(outputDir + "/" + fastaDoc.getName() + ".result");
             File sumResultOutput = new File(outputDir + "/" + fastaDoc.getName() + ".result.sum");
@@ -108,13 +108,30 @@ public class BioSpectra {
         searcher.close();
     }
 
-    private static void indexUtils(String[] args) throws Exception {
+    private static void utils(String[] args) throws Exception {
         String operation = args[1];
-        String indexDir = args[2];
         
-        IndexUtil util = new IndexUtil(indexDir);
         if(operation.equalsIgnoreCase("doccount")) {
-            System.out.println("total docs : " + util.countDocs());
+            String indexDir = args[2];
+        
+            IndexUtil util = new IndexUtil(indexDir);
+            if(operation.equalsIgnoreCase("doccount")) {
+                System.out.println("total docs : " + util.countDocs());
+            }
+        } else if(operation.equalsIgnoreCase("fasta")) {
+            String fastaDir = args[2];
+        
+            List<File> fastaDocs = FastaFileHelper.findFastaDocs(fastaDir);
+            for(File fastaDoc : fastaDocs) {
+                System.out.println("found FASTA file : " + fastaDoc.getAbsolutePath());
+            }
+        } else if(operation.equalsIgnoreCase("nfasta")) {
+            String fastaDir = args[2];
+        
+            List<File> fastaDocs = FastaFileHelper.findNonFastaDocs(fastaDir);
+            for(File fastaDoc : fastaDocs) {
+                System.out.println("found non-FASTA file : " + fastaDoc.getAbsolutePath());
+            }
         }
     }
 }
