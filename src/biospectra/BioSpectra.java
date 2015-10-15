@@ -121,17 +121,33 @@ public class BioSpectra {
         } else if(operation.equalsIgnoreCase("fasta")) {
             String fastaDir = args[2];
         
+            int count = 0;
+            long size_sum = 0;
             List<File> fastaDocs = FastaFileHelper.findFastaDocs(fastaDir);
             for(File fastaDoc : fastaDocs) {
                 System.out.println("found FASTA file : " + fastaDoc.getAbsolutePath());
+                System.out.println("size> " + fastaDoc.length());
+                count++;
+                size_sum += fastaDoc.length();
             }
+            System.out.println("SUMMARY");
+            System.out.println("Count : " + count);
+            System.out.println("Size in total : " + size_sum);
         } else if(operation.equalsIgnoreCase("nfasta")) {
             String fastaDir = args[2];
         
+            int count = 0;
+            long size_sum = 0;
             List<File> fastaDocs = FastaFileHelper.findNonFastaDocs(fastaDir);
             for(File fastaDoc : fastaDocs) {
                 System.out.println("found non-FASTA file : " + fastaDoc.getAbsolutePath());
+                System.out.println("size> " + fastaDoc.length());
+                count++;
+                size_sum += fastaDoc.length();
             }
+            System.out.println("SUMMARY");
+            System.out.println("Count : " + count);
+            System.out.println("Size in total : " + size_sum);
         }
     }
 }
