@@ -56,6 +56,9 @@ import org.yeastrc.fasta.FASTAReader;
 public class SequenceSearcher implements Closeable {
     private static final Log LOG = LogFactory.getLog(SequenceSearcher.class);
     
+    private static final int DEFAULT_QUERY_KMER_CREATION_SKIPS = IndexConstants.KMERSIZE / 2;
+    private static final double DEFAULT_QUERY_TERMS_MIN_SHOULD_MATCH = 0.7;
+            
     private File indexPath;
     private Analyzer analyzer;
     private IndexReader indexReader;
@@ -79,7 +82,7 @@ public class SequenceSearcher implements Closeable {
         }
         
         this.indexPath = indexPath;
-        this.analyzer = new KmerQueryAnalyzer(IndexConstants.KMERSIZE, IndexConstants.KMERSIZE/2);
+        this.analyzer = new KmerQueryAnalyzer(IndexConstants.KMERSIZE, DEFAULT_QUERY_KMER_CREATION_SKIPS);
         Directory dir = new MMapDirectory(this.indexPath); 
         this.indexReader = DirectoryReader.open(dir);
         this.indexSearcher = new IndexSearcher(this.indexReader);
@@ -92,6 +95,17 @@ public class SequenceSearcher implements Closeable {
         
         QueryParser queryParser = new QueryParser(Version.LUCENE_40, IndexConstants.FIELD_SEQUENCE, this.analyzer);
         Query q = queryParser.parse(sequence);
+        if(q instanceof BooleanQuery) {
+            BooleanQuery bq = (BooleanQuery)q;
+
+            int size = bq.clauses().size();
+            if(size <= 1) {
+                bq.setMinimumNumberShouldMatch(size);
+            } else {
+                int minmatch = (int)Math.ceil(size * DEFAULT_QUERY_TERMS_MIN_SHOULD_MATCH);
+                bq.setMinimumNumberShouldMatch(minmatch);
+            }
+        }
         
         int hitsPerPage = 10;
         TopScoreDocCollector collector = TopScoreDocCollector.create(hitsPerPage, true);
@@ -163,8 +177,13 @@ public class SequenceSearcher implements Closeable {
                         if(q instanceof BooleanQuery) {
                             BooleanQuery bq = (BooleanQuery)q;
                             
-                            // 50% should match
-                            bq.setMinimumNumberShouldMatch(bq.clauses().size() / 2);
+                            int size = bq.clauses().size();
+                            if(size <= 1) {
+                                bq.setMinimumNumberShouldMatch(size);
+                            } else {
+                                int minmatch = (int)Math.ceil(size * DEFAULT_QUERY_TERMS_MIN_SHOULD_MATCH);
+                                bq.setMinimumNumberShouldMatch(minmatch);
+                            }
                         }
                         
                         int hitsPerPage = 10;

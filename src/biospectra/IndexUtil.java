@@ -61,10 +61,4 @@ public class IndexUtil {
     public int countDocs() throws Exception {
         return this.indexReader.numDocs();
     }
-    
-    public long countTerms() throws Exception {
-        Fields fields = MultiFields.getFields(this.indexReader);
-        Terms terms = fields.terms(IndexConstants.FIELD_SEQUENCE);
-        return terms.size();
-    }
 }

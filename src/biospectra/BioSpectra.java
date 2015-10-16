@@ -116,7 +116,6 @@ public class BioSpectra {
         
             IndexUtil indexutil = new IndexUtil(indexDir);
             System.out.println("total docs : " + indexutil.countDocs());
-            System.out.println("total terms : " + indexutil.countTerms());
         } else if(operation.equalsIgnoreCase("fasta")) {
             String fastaDir = args[2];
         
