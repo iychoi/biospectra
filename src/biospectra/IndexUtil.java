@@ -15,14 +15,13 @@
  */
 package biospectra;
 
+import java.io.Closeable;
 import java.io.File;
+import java.io.IOException;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.lucene.index.DirectoryReader;
-import org.apache.lucene.index.Fields;
 import org.apache.lucene.index.IndexReader;
-import org.apache.lucene.index.MultiFields;
-import org.apache.lucene.index.Terms;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.MMapDirectory;
 
@@ -30,7 +29,7 @@ import org.apache.lucene.store.MMapDirectory;
  *
  * @author iychoi
  */
-public class IndexUtil {
+public class IndexUtil implements Closeable {
     private static final Log LOG = LogFactory.getLog(IndexUtil.class);
     
     private File indexPath;
@@ -60,5 +59,10 @@ public class IndexUtil {
     
     public int countDocs() throws Exception {
         return this.indexReader.numDocs();
+    }
+
+    @Override
+    public void close() throws IOException {
+        this.indexReader.close();
     }
 }

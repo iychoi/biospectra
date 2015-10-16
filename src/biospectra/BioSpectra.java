@@ -15,6 +15,8 @@
  */
 package biospectra;
 
+import biospectra.taxdb.TaxonDB;
+import biospectra.taxdb.Taxonomy;
 import biospectra.utils.FastaFileHelper;
 import java.io.File;
 import java.util.Date;
@@ -116,6 +118,7 @@ public class BioSpectra {
         
             IndexUtil indexutil = new IndexUtil(indexDir);
             System.out.println("total docs : " + indexutil.countDocs());
+            indexutil.close();
         } else if(operation.equalsIgnoreCase("fasta")) {
             String fastaDir = args[2];
         
@@ -146,6 +149,26 @@ public class BioSpectra {
             System.out.println("SUMMARY");
             System.out.println("Count : " + count);
             System.out.println("Size in total : " + size_sum);
+        } else if(operation.equalsIgnoreCase("taxid")) {
+            String dbDir = args[2];
+            int taxid = Integer.parseInt(args[3]);
+            
+            TaxonDB db = new TaxonDB(dbDir);
+            List<Taxonomy> taxon = db.getFullTaxonomyHierarchyByTaxid(taxid);
+            for(Taxonomy t : taxon) {
+                System.out.println(t.toString());
+            }
+            db.close();
+        } else if(operation.equalsIgnoreCase("gi")) {
+            String dbDir = args[2];
+            int gi = Integer.parseInt(args[3]);
+            
+            TaxonDB db = new TaxonDB(dbDir);
+            List<Taxonomy> taxon = db.getFullTaxonomyHierarchyByGI(gi);
+            for(Taxonomy t : taxon) {
+                System.out.println(t.toString());
+            }
+            db.close();
         }
     }
 }
