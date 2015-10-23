@@ -166,6 +166,7 @@ public class SequenceSearcher implements Closeable {
         long n = 0;
         while((read = reader.readNext()) != null) {
             final String sequence = read.getSequence();
+            final String header = read.getHeaderLine();
 
             Runnable worker = new Runnable() {
 
@@ -206,9 +207,9 @@ public class SequenceSearcher implements Closeable {
                                 }
                             }
                             
-                            bresult = new BulkSearchResult(sequence, resultArr);
+                            bresult = new BulkSearchResult(header, sequence, resultArr);
                         } else {
-                            bresult = new BulkSearchResult(sequence, null);
+                            bresult = new BulkSearchResult(header, sequence, null);
                         }
                         
                         JsonSerializer serializer = new JsonSerializer();

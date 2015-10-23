@@ -35,11 +35,21 @@ public class BulkSearchResult {
         CLASSIFIED,
     }
 
+    private String queryHeader;
     private String query;
     private List<SearchResult> result = new ArrayList<SearchResult>();
     private SearchResultType type;
             
     public BulkSearchResult(String query, List<SearchResult> result) {
+        initialize(null, query, result);
+    }
+    
+    public BulkSearchResult(String queryHeader, String query, List<SearchResult> result) {
+        initialize(queryHeader, query, result);
+    }
+    
+    private void initialize(String queryHeader, String query, List<SearchResult> result) {
+        this.queryHeader = queryHeader;
         this.query = query;
         if(result != null) {
             this.result.addAll(result);
@@ -70,6 +80,16 @@ public class BulkSearchResult {
                 return SearchResultType.CLASSIFIED;
             }
         }
+    }
+    
+    @JsonProperty("query_header")
+    public String getQueryHeader() {
+        return queryHeader;
+    }
+
+    @JsonProperty("query_header")
+    public void setQueryHeader(String queryHeader) {
+        this.queryHeader = queryHeader;
     }
     
     @JsonProperty("query")
