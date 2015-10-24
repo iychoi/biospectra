@@ -15,6 +15,10 @@
  */
 package biospectra;
 
+import biospectra.search.SearchResult;
+import biospectra.search.SequenceSearcher;
+import biospectra.index.IndexUtil;
+import biospectra.index.Indexer;
 import biospectra.taxdb.TaxonDB;
 import biospectra.taxdb.Taxonomy;
 import biospectra.utils.FastaFileHelper;
@@ -52,7 +56,14 @@ public class BioSpectra {
         String referenceDir = args[1];
         String indexDir = args[2];
         
-        Indexer indexer = new Indexer(indexDir);
+        Configuration conf = new Configuration();
+        conf.setIndexPath(indexDir);
+        
+        if(args.length >= 4) {
+            conf.setKmerSize(Integer.parseInt(args[3]));
+        }
+        
+        Indexer indexer = new Indexer(conf);
         
         List<File> refereneFiles = FastaFileHelper.findFastaDocs(referenceDir);
         for(File fastaDoc : refereneFiles) {
@@ -72,7 +83,14 @@ public class BioSpectra {
         String indexDir = args[1];
         String query = args[2];
         
-        SequenceSearcher searcher = new SequenceSearcher(indexDir);
+        Configuration conf = new Configuration();
+        conf.setIndexPath(indexDir);
+        
+        if(args.length >= 4) {
+            conf.setKmerSize(Integer.parseInt(args[3]));
+        }
+        
+        SequenceSearcher searcher = new SequenceSearcher(conf);
         
         Date start = new Date(); 
         
@@ -80,9 +98,15 @@ public class BioSpectra {
         
         Date end = new Date(); 
         LOG.info("searching finished - " + (end.getTime() - start.getTime()) + " total milliseconds");
-            
+        
+        boolean hasResult = false;
         for(SearchResult r : result) {
             System.out.println(r.toString());
+            hasResult = true;
+        }
+        
+        if(!hasResult) {
+            System.out.println("no document found");
         }
         
         searcher.close();
@@ -93,7 +117,14 @@ public class BioSpectra {
         String inputDir = args[2];
         String outputDir = args[3];
         
-        SequenceSearcher searcher = new SequenceSearcher(indexDir);
+        Configuration conf = new Configuration();
+        conf.setIndexPath(indexDir);
+        
+        if(args.length >= 5) {
+            conf.setKmerSize(Integer.parseInt(args[4]));
+        }
+        
+        SequenceSearcher searcher = new SequenceSearcher(conf);
         
         File output = new File(outputDir);
         if(!output.exists()) {

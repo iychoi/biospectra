@@ -13,15 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package biospectra;
+package biospectra.index;
 
 /**
  *
  * @author iychoi
  */
 public class IndexConstants {
-    public static final int KMERSIZE = 20;
-    
     public static final String FIELD_FILENAME = "filename";
     public static final String FIELD_HEADER = "header";
     public static final String FIELD_SEQUENCE = "sequence";

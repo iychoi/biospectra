@@ -23,10 +23,11 @@ import org.apache.lucene.analysis.Tokenizer;
  *
  * @author iychoi
  */
-public class KmerAnalyzer extends Analyzer {
+public class KmerIndexAnalyzer extends Analyzer {
+    
     private int k;
 
-    public KmerAnalyzer(int k) {
+    public KmerIndexAnalyzer(int k) {
         this.k = k;
     }
     

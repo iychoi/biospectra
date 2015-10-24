@@ -13,8 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package biospectra;
+package biospectra.search;
 
+import biospectra.index.IndexConstants;
 import biospectra.utils.JsonSerializer;
 import java.io.File;
 import java.io.IOException;

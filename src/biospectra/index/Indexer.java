@@ -13,9 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package biospectra;
+package biospectra.index;
 
-import biospectra.lucene.KmerAnalyzer;
+import biospectra.Configuration;
+import biospectra.lucene.KmerIndexAnalyzer;
 import biospectra.utils.FastaFileReader;
 import java.io.Closeable;
 import java.io.File;
@@ -48,25 +49,53 @@ public class Indexer implements Closeable {
     private Analyzer analyzer;
     private IndexWriter indexWriter;
     
-    public Indexer(String indexPath) throws Exception {
+    public Indexer(String indexPath, int kmerSize) throws Exception {
         if(indexPath == null) {
             throw new IllegalArgumentException("indexPath is null");
         }
         
-        initialize(new File(indexPath));
+        if(kmerSize <= 0) {
+            throw new IllegalArgumentException("kmerSize must be larger than 0");
+        }
+        
+        initialize(new File(indexPath), kmerSize);
     }
     
-    public Indexer(File indexPath) throws Exception {
-        initialize(indexPath);
-    }
-    
-    private void initialize(File indexPath) throws Exception {
+    public Indexer(File indexPath, int kmerSize) throws Exception {
         if(indexPath == null) {
             throw new IllegalArgumentException("indexPath is null");
+        }
+        
+        if(kmerSize <= 0) {
+            throw new IllegalArgumentException("kmerSize must be larger than 0");
+        }
+        
+        initialize(indexPath, kmerSize);
+    }
+    
+    public Indexer(Configuration conf) throws Exception {
+        if(conf == null) {
+            throw new IllegalArgumentException("conf is null");
+        }
+        
+        if(conf.getIndexPath() == null) {
+            throw new IllegalArgumentException("indexPath is null");
+        }
+        
+        if(conf.getKmerSize() <= 0) {
+            throw new IllegalArgumentException("kmerSize must be larger than 0");
+        }
+        
+        initialize(new File(conf.getIndexPath()), conf.getKmerSize());
+    }
+    
+    private void initialize(File indexPath, int kmerSize) throws Exception {
+        if(!indexPath.exists() || !indexPath.isDirectory()) {
+            throw new IllegalArgumentException("indexPath is not a directory or does not exist");
         }
         
         this.indexPath = indexPath;
-        this.analyzer = new KmerAnalyzer(IndexConstants.KMERSIZE);
+        this.analyzer = new KmerIndexAnalyzer(kmerSize);
         Directory dir = new NIOFSDirectory(this.indexPath); 
         IndexWriterConfig config = new IndexWriterConfig(Version.LUCENE_40, this.analyzer); 
         config.setOpenMode(IndexWriterConfig.OpenMode.CREATE_OR_APPEND);

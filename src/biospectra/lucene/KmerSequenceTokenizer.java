@@ -32,7 +32,6 @@ public class KmerSequenceTokenizer extends Tokenizer {
 
     private static final Log LOG = LogFactory.getLog(KmerSequenceTokenizer.class);
     
-    public static final int DEFAULT_KMER_SIZE = 20;
     private static final int BUFFER_SIZE = 4096;
     
     private int kmerSize;
@@ -59,10 +58,6 @@ public class KmerSequenceTokenizer extends Tokenizer {
     public KmerSequenceTokenizer(AttributeFactory factory, Reader input, int kmerSize, int skips) {
         super(factory, input);
         init(kmerSize, skips);
-    }
-    
-    public KmerSequenceTokenizer(Reader input) {
-        this(input, DEFAULT_KMER_SIZE, 0);
     }
     
     private void init(int kmerSize, int skips) {

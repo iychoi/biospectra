@@ -13,8 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package biospectra;
+package biospectra.search;
 
+import biospectra.Configuration;
+import biospectra.index.IndexConstants;
 import biospectra.lucene.KmerQueryAnalyzer;
 import biospectra.utils.FastaFileReader;
 import biospectra.utils.JsonSerializer;
@@ -54,41 +56,105 @@ import org.yeastrc.fasta.FASTAReader;
  * @author iychoi
  */
 public class SequenceSearcher implements Closeable {
+    
     private static final Log LOG = LogFactory.getLog(SequenceSearcher.class);
     
-    private static final int DEFAULT_QUERY_KMER_CREATION_SKIPS = IndexConstants.KMERSIZE / 2;
-    private static final double DEFAULT_QUERY_TERMS_MIN_SHOULD_MATCH = 0.7;
-            
     private File indexPath;
     private Analyzer analyzer;
     private IndexReader indexReader;
     private IndexSearcher indexSearcher;
+    private double minShouldMatch;
     
-    public SequenceSearcher(String indexPath) throws Exception {
+    public SequenceSearcher(String indexPath, int kmerSize) throws Exception {
         if(indexPath == null) {
             throw new IllegalArgumentException("indexPath is null");
         }
         
-        initialize(new File(indexPath));
+        if(kmerSize <= 0) {
+            throw new IllegalArgumentException("kmerSize must be larger than 0");
+        }
+        
+        initialize(new File(indexPath), kmerSize, Configuration.DEFAULT_QUERY_TERM_SKIPS, Configuration.DEFAULT_QUERY_TERMS_MIN_SHOULD_MATCH);
     }
     
-    public SequenceSearcher(File indexPath) throws Exception {
-        initialize(indexPath);
-    }
-    
-    private void initialize(File indexPath) throws Exception {
+    public SequenceSearcher(String indexPath, int kmerSize, int queryTermSkips) throws Exception {
         if(indexPath == null) {
             throw new IllegalArgumentException("indexPath is null");
+        }
+        
+        if(kmerSize <= 0) {
+            throw new IllegalArgumentException("kmerSize must be larger than 0");
+        }
+        
+        if(queryTermSkips <= 0) {
+            throw new IllegalArgumentException("queryTermSkips must be larger than 0");
+        }
+        
+        initialize(new File(indexPath), kmerSize, queryTermSkips, Configuration.DEFAULT_QUERY_TERMS_MIN_SHOULD_MATCH);
+    }
+    
+    public SequenceSearcher(File indexPath, int kmerSize) throws Exception {
+        if(indexPath == null) {
+            throw new IllegalArgumentException("indexPath is null");
+        }
+        
+        if(kmerSize <= 0) {
+            throw new IllegalArgumentException("kmerSize must be larger than 0");
+        }
+        
+        initialize(indexPath, kmerSize, Configuration.DEFAULT_QUERY_TERM_SKIPS, Configuration.DEFAULT_QUERY_TERMS_MIN_SHOULD_MATCH);
+    }
+    
+    public SequenceSearcher(File indexPath, int kmerSize, int queryTermSkips) throws Exception {
+        if(indexPath == null) {
+            throw new IllegalArgumentException("indexPath is null");
+        }
+        
+        if(kmerSize <= 0) {
+            throw new IllegalArgumentException("kmerSize must be larger than 0");
+        }
+        
+        if(queryTermSkips <= 0) {
+            throw new IllegalArgumentException("queryTermSkips must be larger than 0");
+        }
+        
+        initialize(indexPath, kmerSize, queryTermSkips, Configuration.DEFAULT_QUERY_TERMS_MIN_SHOULD_MATCH);
+    }
+    
+    public SequenceSearcher(Configuration conf) throws Exception {
+        if(conf == null) {
+            throw new IllegalArgumentException("conf is null");
+        }
+        
+        if(conf.getIndexPath() == null) {
+            throw new IllegalArgumentException("indexPath is null");
+        }
+        
+        if(conf.getKmerSize() <= 0) {
+            throw new IllegalArgumentException("kmerSize must be larger than 0");
+        }
+        
+        initialize(new File(conf.getIndexPath()), conf.getKmerSize(), conf.getQueryTermSkips(), conf.getQueryMinShouldMatch());
+    }
+    
+    private void initialize(File indexPath, int kmerSize, int skips, double minShouldMatch) throws Exception {
+        if(!indexPath.exists() || !indexPath.isDirectory()) {
+            throw new IllegalArgumentException("indexPath is not a directory or does not exist");
         }
         
         this.indexPath = indexPath;
-        this.analyzer = new KmerQueryAnalyzer(IndexConstants.KMERSIZE, DEFAULT_QUERY_KMER_CREATION_SKIPS);
+        this.analyzer = new KmerQueryAnalyzer(kmerSize, skips);
         Directory dir = new MMapDirectory(this.indexPath); 
         this.indexReader = DirectoryReader.open(dir);
         this.indexSearcher = new IndexSearcher(this.indexReader);
+        this.minShouldMatch = minShouldMatch;
     }
     
     public List<SearchResult> search(String sequence) throws Exception {
+        return search(sequence, this.minShouldMatch);
+    }
+    
+    public List<SearchResult> search(String sequence, double minShouldMatch) throws Exception {
         if(sequence == null || sequence.isEmpty()) {
             throw new IllegalArgumentException("sequence is null or empty");
         }
@@ -102,7 +168,7 @@ public class SequenceSearcher implements Closeable {
             if(size <= 1) {
                 bq.setMinimumNumberShouldMatch(size);
             } else {
-                int minmatch = (int)Math.ceil(size * DEFAULT_QUERY_TERMS_MIN_SHOULD_MATCH);
+                int minmatch = (int)Math.ceil(size * minShouldMatch);
                 bq.setMinimumNumberShouldMatch(minmatch);
             }
         }
@@ -129,6 +195,10 @@ public class SequenceSearcher implements Closeable {
     }
     
     public void bulkSearch(File inputFasta, File classifyOutput, File summaryOutput) throws Exception {
+        bulkSearch(inputFasta, classifyOutput, summaryOutput, this.minShouldMatch);
+    }
+    
+    public void bulkSearch(File inputFasta, File classifyOutput, File summaryOutput, double minShouldMatch) throws Exception {
         if(inputFasta == null) {
             throw new IllegalArgumentException("inputFasta is null");
         }
@@ -164,6 +234,7 @@ public class SequenceSearcher implements Closeable {
                 new ThreadPoolExecutor.CallerRunsPolicy());
         
         long n = 0;
+        final double _minShouldMatch = minShouldMatch;
         while((read = reader.readNext()) != null) {
             final String sequence = read.getSequence();
             final String header = read.getHeaderLine();
@@ -182,7 +253,7 @@ public class SequenceSearcher implements Closeable {
                             if(size <= 1) {
                                 bq.setMinimumNumberShouldMatch(size);
                             } else {
-                                int minmatch = (int)Math.ceil(size * DEFAULT_QUERY_TERMS_MIN_SHOULD_MATCH);
+                                int minmatch = (int)Math.ceil(size * _minShouldMatch);
                                 bq.setMinimumNumberShouldMatch(minmatch);
                             }
                         }
