@@ -22,11 +22,13 @@ import biospectra.index.Indexer;
 import biospectra.taxdb.TaxonDB;
 import biospectra.taxdb.Taxonomy;
 import biospectra.utils.FastaFileHelper;
+import biospectra.verification.MetagenomicReadGenerator;
 import java.io.File;
 import java.util.Date;
 import java.util.List;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.yeastrc.fasta.FASTAEntry;
 
 /**
  *
@@ -200,6 +202,16 @@ public class BioSpectra {
                 System.out.println(t.toString());
             }
             db.close();
+        } else if(operation.equalsIgnoreCase("sample")) {
+            String fastaDir = args[2];
+            int readSize = Integer.parseInt(args[3]);
+            double errorRatio = Double.parseDouble(args[4]);
+            
+            List<File> fastaDocs = FastaFileHelper.findFastaDocs(fastaDir);
+            MetagenomicReadGenerator generator = new MetagenomicReadGenerator(fastaDocs, readSize, errorRatio);
+            FASTAEntry sample = generator.generate();
+            System.out.println("Header: " + sample.getHeaderLine());
+            System.out.println("Sequence: " + sample.getSequence());
         }
     }
 }
