@@ -206,12 +206,16 @@ public class BioSpectra {
             String fastaDir = args[2];
             int readSize = Integer.parseInt(args[3]);
             double errorRatio = Double.parseDouble(args[4]);
+            int iteration = Integer.parseInt(args[5]);
             
             List<File> fastaDocs = FastaFileHelper.findFastaDocs(fastaDir);
             MetagenomicReadGenerator generator = new MetagenomicReadGenerator(fastaDocs, readSize, errorRatio);
-            FASTAEntry sample = generator.generate();
-            System.out.println("Header: " + sample.getHeaderLine());
-            System.out.println("Sequence: " + sample.getSequence());
+            
+            for(int i=0;i<iteration;i++) {
+                FASTAEntry sample = generator.generate();
+                System.out.println(sample.getHeaderLine());
+                System.out.println(sample.getSequence());
+            }
         }
     }
 }
