@@ -53,7 +53,7 @@ public class IndexUtil implements Closeable {
         }
         
         this.indexPath = indexPath;
-        Directory dir = new MMapDirectory(this.indexPath); 
+        Directory dir = new MMapDirectory(this.indexPath.toPath()); 
         this.indexReader = DirectoryReader.open(dir);
     }
     

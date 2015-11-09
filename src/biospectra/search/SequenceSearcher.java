@@ -47,7 +47,6 @@ import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.search.TopScoreDocCollector;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.MMapDirectory;
-import org.apache.lucene.util.Version;
 import org.yeastrc.fasta.FASTAEntry;
 import org.yeastrc.fasta.FASTAReader;
 
@@ -144,7 +143,7 @@ public class SequenceSearcher implements Closeable {
         
         this.indexPath = indexPath;
         this.analyzer = new KmerQueryAnalyzer(kmerSize, skips);
-        Directory dir = new MMapDirectory(this.indexPath); 
+        Directory dir = new MMapDirectory(this.indexPath.toPath()); 
         this.indexReader = DirectoryReader.open(dir);
         this.indexSearcher = new IndexSearcher(this.indexReader);
         this.minShouldMatch = minShouldMatch;
@@ -159,7 +158,7 @@ public class SequenceSearcher implements Closeable {
             throw new IllegalArgumentException("sequence is null or empty");
         }
         
-        QueryParser queryParser = new QueryParser(Version.LUCENE_40, IndexConstants.FIELD_SEQUENCE, this.analyzer);
+        QueryParser queryParser = new QueryParser(IndexConstants.FIELD_SEQUENCE, this.analyzer);
         Query q = queryParser.parse(sequence);
         if(q instanceof BooleanQuery) {
             BooleanQuery bq = (BooleanQuery)q;
@@ -174,7 +173,7 @@ public class SequenceSearcher implements Closeable {
         }
         
         int hitsPerPage = 10;
-        TopScoreDocCollector collector = TopScoreDocCollector.create(hitsPerPage, true);
+        TopScoreDocCollector collector = TopScoreDocCollector.create(hitsPerPage);
         this.indexSearcher.search(q, collector);
         TopDocs topdocs = collector.topDocs();
         ScoreDoc[] hits = topdocs.scoreDocs;
@@ -244,7 +243,7 @@ public class SequenceSearcher implements Closeable {
                 @Override
                 public void run() {
                     try {
-                        QueryParser queryParser = new QueryParser(Version.LUCENE_40, IndexConstants.FIELD_SEQUENCE, analyzer);
+                        QueryParser queryParser = new QueryParser(IndexConstants.FIELD_SEQUENCE, analyzer);
                         Query q = queryParser.parse(sequence);
                         if(q instanceof BooleanQuery) {
                             BooleanQuery bq = (BooleanQuery)q;
@@ -259,7 +258,7 @@ public class SequenceSearcher implements Closeable {
                         }
                         
                         int hitsPerPage = 10;
-                        TopScoreDocCollector collector = TopScoreDocCollector.create(hitsPerPage, true);
+                        TopScoreDocCollector collector = TopScoreDocCollector.create(hitsPerPage);
                         indexSearcher.search(q, collector);
                         TopDocs topdocs = collector.topDocs();
                         ScoreDoc[] hits = topdocs.scoreDocs;

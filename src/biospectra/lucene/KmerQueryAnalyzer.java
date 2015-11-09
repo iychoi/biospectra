@@ -15,7 +15,9 @@
  */
 package biospectra.lucene;
 
-import java.io.Reader;
+import java.io.IOException;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.Tokenizer;
 
@@ -24,6 +26,9 @@ import org.apache.lucene.analysis.Tokenizer;
  * @author iychoi
  */
 public class KmerQueryAnalyzer extends Analyzer {
+
+    private static final Log LOG = LogFactory.getLog(KmerQueryAnalyzer.class);
+    
     private int k;
     private int skips;
 
@@ -33,11 +38,16 @@ public class KmerQueryAnalyzer extends Analyzer {
     }
     
     @Override
-    protected TokenStreamComponents createComponents(String fieldName, Reader reader) {
-        Tokenizer tokenizer = new KmerSequenceTokenizer(reader, this.k, this.skips);
-        // use lower sequence form (forward / reverse complement)
-        // use compression make 1/3 of size
-        LowerSequenceFormFilter filter = new LowerSequenceFormFilter(tokenizer, true);
-        return new TokenStreamComponents(tokenizer, filter);
+    protected TokenStreamComponents createComponents(String fieldName) {
+        try {
+            Tokenizer tokenizer = new KmerSequenceTokenizer(this.k, this.skips);
+            // use lower sequence form (forward / reverse complement)
+            // use compression make 1/3 of size
+            LowerSequenceFormFilter filter = new LowerSequenceFormFilter(tokenizer, true);
+            return new TokenStreamComponents(tokenizer, filter);
+        } catch (IOException ex) {
+            LOG.error(ex);
+            return null;
+        }
     }
 }

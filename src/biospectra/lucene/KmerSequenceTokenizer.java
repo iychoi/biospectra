@@ -16,13 +16,12 @@
 package biospectra.lucene;
 
 import java.io.IOException;
-import java.io.Reader;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.lucene.analysis.Tokenizer;
 import org.apache.lucene.analysis.tokenattributes.CharTermAttribute;
 import org.apache.lucene.analysis.tokenattributes.OffsetAttribute;
-import org.apache.lucene.util.AttributeSource;
+import org.apache.lucene.util.AttributeFactory;
 
 /**
  *
@@ -45,18 +44,12 @@ public class KmerSequenceTokenizer extends Tokenizer {
     private final CharTermAttribute termAtt = addAttribute(CharTermAttribute.class);
     private final OffsetAttribute offsetAtt = addAttribute(OffsetAttribute.class);
     
-    public KmerSequenceTokenizer(Reader input, int kmerSize, int skips) {
-        super(input);
+    public KmerSequenceTokenizer(int kmerSize, int skips) throws IOException {
         init(kmerSize, skips);
     }
     
-    public KmerSequenceTokenizer(AttributeSource source, Reader input, int kmerSize, int skips) {
-        super(source, input);
-        init(kmerSize, skips);
-    }
-    
-    public KmerSequenceTokenizer(AttributeFactory factory, Reader input, int kmerSize, int skips) {
-        super(factory, input);
+    public KmerSequenceTokenizer(AttributeFactory factory, int kmerSize, int skips) throws IOException {
+        super(factory);
         init(kmerSize, skips);
     }
     
@@ -162,7 +155,8 @@ public class KmerSequenceTokenizer extends Tokenizer {
     }
     
     @Override
-    public void end() {
+    public void end() throws IOException {
+        super.end();
     }
     
     @Override

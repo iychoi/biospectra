@@ -96,8 +96,8 @@ public class Indexer implements Closeable {
         
         this.indexPath = indexPath;
         this.analyzer = new KmerIndexAnalyzer(kmerSize);
-        Directory dir = new NIOFSDirectory(this.indexPath); 
-        IndexWriterConfig config = new IndexWriterConfig(Version.LUCENE_40, this.analyzer); 
+        Directory dir = new NIOFSDirectory(this.indexPath.toPath()); 
+        IndexWriterConfig config = new IndexWriterConfig(this.analyzer); 
         config.setOpenMode(IndexWriterConfig.OpenMode.CREATE_OR_APPEND);
         this.indexWriter = new IndexWriter(dir, config);
     }
