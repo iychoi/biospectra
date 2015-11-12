@@ -90,8 +90,8 @@ public class Indexer implements Closeable {
     }
     
     private void initialize(File indexPath, int kmerSize) throws Exception {
-        if(!indexPath.exists() || !indexPath.isDirectory()) {
-            throw new IllegalArgumentException("indexPath is not a directory or does not exist");
+        if(!indexPath.exists()) {
+            indexPath.mkdirs();
         }
         
         this.indexPath = indexPath;

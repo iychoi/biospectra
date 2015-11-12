@@ -23,7 +23,9 @@ import biospectra.taxdb.TaxonDB;
 import biospectra.taxdb.Taxonomy;
 import biospectra.utils.FastaFileHelper;
 import biospectra.verification.MetagenomicReadGenerator;
+import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileWriter;
 import java.util.Date;
 import java.util.List;
 import org.apache.commons.logging.Log;
@@ -51,6 +53,8 @@ public class BioSpectra {
             bulksearch(args);
         } else if(op.equalsIgnoreCase("u") || op.equalsIgnoreCase("utils")) {
             utils(args);
+        } else if(op.equalsIgnoreCase("sample")) {
+            sample(args);
         }
     }
 
@@ -142,6 +146,37 @@ public class BioSpectra {
         
         searcher.close();
     }
+    
+    private static void sample(String[] args) throws Exception {
+        String fastaDir = args[1];
+        int readSize = Integer.parseInt(args[2]);
+        double errorRatioStart = Double.parseDouble(args[3]);
+        double errorRatioEnd = Double.parseDouble(args[4]);
+        double errorRatioStep = Double.parseDouble(args[5]);
+        int iteration = Integer.parseInt(args[6]);
+        String outDir = args[7];
+
+        List<File> fastaDocs = FastaFileHelper.findFastaDocs(fastaDir);
+
+        File outDirFile = new File(outDir);
+        if(!outDirFile.exists()) {
+            outDirFile.mkdirs();
+        }
+        
+        MetagenomicReadGenerator generator = new MetagenomicReadGenerator(fastaDocs);
+        for (double cur = errorRatioStart; cur <= errorRatioEnd; cur += errorRatioStep) {
+            File outFile = new File(outDir + "/sample_" + cur + ".fa");
+            BufferedWriter bw = new BufferedWriter(new FileWriter(outFile));
+            for(int i=0;i<iteration;i++) {
+                FASTAEntry sample = generator.generate(readSize, cur);
+                bw.write(sample.getHeaderLine());
+                bw.newLine();
+                bw.write(sample.getSequence());
+                bw.newLine();
+            }
+            bw.close();
+        }
+    }
 
     private static void utils(String[] args) throws Exception {
         String operation = args[1];
@@ -193,33 +228,15 @@ public class BioSpectra {
             }
             db.close();
         } else if(operation.equalsIgnoreCase("gi")) {
-            String dbDir = args[2];
+            String dbFile = args[2];
             int gi = Integer.parseInt(args[3]);
             
-            TaxonDB db = new TaxonDB(dbDir);
+            TaxonDB db = new TaxonDB(dbFile);
             List<Taxonomy> taxon = db.getFullTaxonomyHierarchyByGI(gi);
             for(Taxonomy t : taxon) {
                 System.out.println(t.toString());
             }
             db.close();
-        } else if(operation.equalsIgnoreCase("sample")) {
-            String fastaDir = args[2];
-            int readSize = Integer.parseInt(args[3]);
-            double errorRatioStart = Double.parseDouble(args[4]);
-            double errorRatioEnd = Double.parseDouble(args[5]);
-            double errorRatioStep = Double.parseDouble(args[6]);
-            int iteration = Integer.parseInt(args[7]);
-            
-            List<File> fastaDocs = FastaFileHelper.findFastaDocs(fastaDir);
-            
-            MetagenomicReadGenerator generator = new MetagenomicReadGenerator(fastaDocs);
-            for (double cur = errorRatioStart; cur <= errorRatioEnd; cur += errorRatioStep) {
-                for(int i=0;i<iteration;i++) {
-                    FASTAEntry sample = generator.generate(readSize, cur);
-                    System.out.println(sample.getHeaderLine());
-                    System.out.println(sample.getSequence());
-                }
-            }
         }
     }
 }
