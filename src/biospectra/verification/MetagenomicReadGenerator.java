@@ -31,16 +31,24 @@ public class MetagenomicReadGenerator implements Closeable {
     private static final Log LOG = LogFactory.getLog(MetagenomicReadGenerator.class);
     
     private List<File> fastaDocs;
-    private int readSize;
-    private double errorRatio;
     private RandomReadSampler readSampler;
     private SequencingArtifactsSimulator artifactsSimulator;
     
-    public MetagenomicReadGenerator(List<File> fastaDocs, int readSize, double errorRatio) throws Exception {
+    public MetagenomicReadGenerator(List<File> fastaDocs) throws Exception {
         if(fastaDocs == null) {
             throw new IllegalArgumentException("fastaDocs is null");
         }
         
+        initialize(fastaDocs);
+    }
+    
+    private void initialize(List<File> fastaDocs) throws Exception {
+        this.fastaDocs = fastaDocs;
+        this.readSampler = new RandomReadSampler(fastaDocs);
+        this.artifactsSimulator = new SequencingArtifactsSimulator();
+    }
+    
+    public FASTAEntry generate(int readSize, double errorRatio) throws Exception {
         if(readSize <= 0) {
             throw new IllegalArgumentException("readSize must be larger than 0");
         }
@@ -49,21 +57,8 @@ public class MetagenomicReadGenerator implements Closeable {
             throw new IllegalArgumentException("errorRatio must be a positive value between 0 and 1");
         }
         
-        initialize(fastaDocs, readSize, errorRatio);
-    }
-    
-    private void initialize(List<File> fastaDocs, int readSize, double errorRatio) throws Exception {
-        this.fastaDocs = fastaDocs;
-        this.readSize = readSize;
-        this.errorRatio = errorRatio;
-        
-        this.readSampler = new RandomReadSampler(fastaDocs, readSize);
-        this.artifactsSimulator = new SequencingArtifactsSimulator();
-    }
-    
-    public FASTAEntry generate() throws Exception {
-        FASTAEntry sample = this.readSampler.sample();
-        String newSequence = this.artifactsSimulator.noise(sample.getSequence(), this.errorRatio);
+        FASTAEntry sample = this.readSampler.sample(readSize);
+        String newSequence = this.artifactsSimulator.noise(sample.getSequence(), errorRatio);
         
         return new FASTAEntry(sample.getHeaders(), newSequence, sample.getHeaderLine());
     }
@@ -71,8 +66,6 @@ public class MetagenomicReadGenerator implements Closeable {
     @Override
     public void close() throws IOException {
         this.fastaDocs.clear();
-        this.readSize = 0;
-        this.errorRatio = 0;
         this.readSampler.close();
     }
 }

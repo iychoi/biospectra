@@ -36,26 +36,20 @@ public class RandomReadSampler implements Closeable {
     private static final Log LOG = LogFactory.getLog(RandomReadSampler.class);
     
     private List<File> fastaDocs;
-    private int readSize;
     private List<ReadInfo> readInfo;
     private long rangeMax;
     private Random random;
     
-    public RandomReadSampler(List<File> fastaDocs, int readSize) throws Exception {
+    public RandomReadSampler(List<File> fastaDocs) throws Exception {
         if(fastaDocs == null) {
             throw new IllegalArgumentException("fastaDocs is null");
         }
         
-        if(readSize <= 0) {
-            throw new IllegalArgumentException("readSize must be larger than 0");
-        }
-        
-        initialize(fastaDocs, readSize);
+        initialize(fastaDocs);
     }
     
-    private void initialize(List<File> fastaDocs, int readSize) throws Exception {
+    private void initialize(List<File> fastaDocs) throws Exception {
         this.fastaDocs = fastaDocs;
-        this.readSize = readSize;
         
         // precompute readinfo
         this.readInfo = makeReadInfo(fastaDocs);
@@ -92,6 +86,16 @@ public class RandomReadSampler implements Closeable {
         return readInfoArr;
     }
     
+    private boolean isATGCSequence(String seq) {
+        for(int i=0;i<seq.length();i++) {
+            char s = seq.charAt(i);
+            if(s != 'A' && s != 'T' && s != 'G' && s != 'C') {
+                return false;
+            }
+        }
+        return true;
+    }
+    
     private FASTAEntry trySample(int readSize) throws Exception {
         long random = Math.abs(this.random.nextLong()) % this.rangeMax;
         long left = random;
@@ -105,8 +109,12 @@ public class RandomReadSampler implements Closeable {
                     while((read = reader.readNext()) != null) {
                         if(id == ri.getId()) {
                             String sequence = read.getSequence().substring((int) left, (int) (left + readSize));
-                            FASTAEntry entry = new FASTAEntry(read.getHeaders(), sequence, read.getHeaderLine());
-                            return entry;
+                            if(isATGCSequence(sequence)) {
+                                FASTAEntry entry = new FASTAEntry(read.getHeaders(), sequence, read.getHeaderLine());
+                                return entry;
+                            } else {
+                                return null;
+                            }
                         }
                         id++;
                     }
@@ -125,12 +133,12 @@ public class RandomReadSampler implements Closeable {
         return null;
     }
     
-    public FASTAEntry sample() throws Exception {
+    public FASTAEntry sample(int readSize) throws Exception {
         FASTAEntry entry = null;
-        int variant = this.random.nextInt(this.readSize / 5) - (this.readSize / 10);
-        int newReadSize = this.readSize + variant;
+        int variant = this.random.nextInt(readSize / 5) - (readSize / 10);
+        int newReadSize = readSize + variant;
         if(newReadSize <= 0) {
-            newReadSize = this.readSize;
+            newReadSize = readSize;
         }
         
         do {
@@ -143,7 +151,6 @@ public class RandomReadSampler implements Closeable {
     @Override
     public void close() throws IOException {
         this.fastaDocs.clear();
-        this.readSize = 0;
         this.readInfo.clear();
     }
 }
