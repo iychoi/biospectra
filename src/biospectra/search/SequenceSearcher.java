@@ -159,18 +159,7 @@ public class SequenceSearcher implements Closeable {
         }
         
         QueryParser queryParser = new QueryParser(IndexConstants.FIELD_SEQUENCE, this.analyzer);
-        Query q = queryParser.parse(sequence);
-        if(q instanceof BooleanQuery) {
-            BooleanQuery bq = (BooleanQuery)q;
-
-            int size = bq.clauses().size();
-            if(size <= 1) {
-                bq.setMinimumNumberShouldMatch(size);
-            } else {
-                int minmatch = (int)Math.ceil(size * minShouldMatch);
-                bq.setMinimumNumberShouldMatch(minmatch);
-            }
-        }
+        Query q = queryParser.createMinShouldMatchQuery(IndexConstants.FIELD_SEQUENCE, sequence, (float) minShouldMatch);
         
         int hitsPerPage = 10;
         TopScoreDocCollector collector = TopScoreDocCollector.create(hitsPerPage);
@@ -244,18 +233,7 @@ public class SequenceSearcher implements Closeable {
                 public void run() {
                     try {
                         QueryParser queryParser = new QueryParser(IndexConstants.FIELD_SEQUENCE, analyzer);
-                        Query q = queryParser.parse(sequence);
-                        if(q instanceof BooleanQuery) {
-                            BooleanQuery bq = (BooleanQuery)q;
-                            
-                            int size = bq.clauses().size();
-                            if(size <= 1) {
-                                bq.setMinimumNumberShouldMatch(size);
-                            } else {
-                                int minmatch = (int)Math.ceil(size * _minShouldMatch);
-                                bq.setMinimumNumberShouldMatch(minmatch);
-                            }
-                        }
+                        Query q = queryParser.createMinShouldMatchQuery(IndexConstants.FIELD_SEQUENCE, sequence, (float) _minShouldMatch);
                         
                         int hitsPerPage = 10;
                         TopScoreDocCollector collector = TopScoreDocCollector.create(hitsPerPage);
