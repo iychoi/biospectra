@@ -31,12 +31,14 @@ public class Configuration {
     private static final Log LOG = LogFactory.getLog(Configuration.class);
     
     public static final int DEFAULT_KMERSIZE = 20;
-    public static final int DEFAULT_QUERY_TERM_SKIPS = 10;
-    public static final double DEFAULT_QUERY_TERMS_MIN_SHOULD_MATCH = 0.7;
+    public static final int DEFAULT_QUERY_TERM_SKIPS = 20;
+    public static final double DEFAULT_QUERY_TERMS_MIN_SHOULD_MATCH = 0.5;
+    public static final boolean DEFAULT_QUERY_TERM_SKIPS_AUTO = true;
 
     private String indexPath;
     private int kmerSize = DEFAULT_KMERSIZE;
     private int queryTermSkips = DEFAULT_QUERY_TERM_SKIPS;
+    private boolean queryTermSkipsAuto = DEFAULT_QUERY_TERM_SKIPS_AUTO;
     private double queryMinShouldMatch = DEFAULT_QUERY_TERMS_MIN_SHOULD_MATCH;
 
     public static Configuration createInstance(File file) throws IOException {
@@ -89,6 +91,16 @@ public class Configuration {
     @JsonProperty("query_term_skips")
     public void setQueryTermSkips(int queryTermSkips) {
         this.queryTermSkips = queryTermSkips;
+    }
+    
+    @JsonProperty("query_term_skips_auto")
+    public boolean getQueryTermSkipsAuto() {
+        return queryTermSkipsAuto;
+    }
+
+    @JsonProperty("query_term_skips_auto")
+    public void setQueryTermSkipsAuto(boolean queryTermSkipsAuto) {
+        this.queryTermSkipsAuto = queryTermSkipsAuto;
     }
     
     @JsonProperty("query_term_min_should_match")

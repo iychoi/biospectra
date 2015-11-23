@@ -18,6 +18,7 @@ package biospectra.search;
 import biospectra.Configuration;
 import biospectra.index.IndexConstants;
 import biospectra.lucene.KmerQueryAnalyzer;
+import biospectra.search.BulkSearchResult.SearchResultType;
 import biospectra.utils.FastaFileReader;
 import biospectra.utils.JsonSerializer;
 import java.io.BufferedWriter;
@@ -39,7 +40,6 @@ import org.apache.lucene.document.Document;
 import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.queryparser.classic.QueryParser;
-import org.apache.lucene.search.BooleanQuery;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.ScoreDoc;
@@ -59,7 +59,8 @@ public class SequenceSearcher implements Closeable {
     private static final Log LOG = LogFactory.getLog(SequenceSearcher.class);
     
     private File indexPath;
-    private Analyzer analyzer;
+    private Analyzer quickAnalyzer;
+    private Analyzer detailedAnalyzer;
     private IndexReader indexReader;
     private IndexSearcher indexSearcher;
     private double minShouldMatch;
@@ -73,7 +74,7 @@ public class SequenceSearcher implements Closeable {
             throw new IllegalArgumentException("kmerSize must be larger than 0");
         }
         
-        initialize(new File(indexPath), kmerSize, Configuration.DEFAULT_QUERY_TERM_SKIPS, Configuration.DEFAULT_QUERY_TERMS_MIN_SHOULD_MATCH);
+        initialize(new File(indexPath), kmerSize, Configuration.DEFAULT_QUERY_TERM_SKIPS, Configuration.DEFAULT_QUERY_TERM_SKIPS_AUTO, Configuration.DEFAULT_QUERY_TERMS_MIN_SHOULD_MATCH);
     }
     
     public SequenceSearcher(String indexPath, int kmerSize, int queryTermSkips) throws Exception {
@@ -89,7 +90,7 @@ public class SequenceSearcher implements Closeable {
             throw new IllegalArgumentException("queryTermSkips must be larger than 0");
         }
         
-        initialize(new File(indexPath), kmerSize, queryTermSkips, Configuration.DEFAULT_QUERY_TERMS_MIN_SHOULD_MATCH);
+        initialize(new File(indexPath), kmerSize, queryTermSkips, Configuration.DEFAULT_QUERY_TERM_SKIPS_AUTO, Configuration.DEFAULT_QUERY_TERMS_MIN_SHOULD_MATCH);
     }
     
     public SequenceSearcher(File indexPath, int kmerSize) throws Exception {
@@ -101,7 +102,7 @@ public class SequenceSearcher implements Closeable {
             throw new IllegalArgumentException("kmerSize must be larger than 0");
         }
         
-        initialize(indexPath, kmerSize, Configuration.DEFAULT_QUERY_TERM_SKIPS, Configuration.DEFAULT_QUERY_TERMS_MIN_SHOULD_MATCH);
+        initialize(indexPath, kmerSize, Configuration.DEFAULT_QUERY_TERM_SKIPS, Configuration.DEFAULT_QUERY_TERM_SKIPS_AUTO, Configuration.DEFAULT_QUERY_TERMS_MIN_SHOULD_MATCH);
     }
     
     public SequenceSearcher(File indexPath, int kmerSize, int queryTermSkips) throws Exception {
@@ -117,7 +118,7 @@ public class SequenceSearcher implements Closeable {
             throw new IllegalArgumentException("queryTermSkips must be larger than 0");
         }
         
-        initialize(indexPath, kmerSize, queryTermSkips, Configuration.DEFAULT_QUERY_TERMS_MIN_SHOULD_MATCH);
+        initialize(indexPath, kmerSize, queryTermSkips, Configuration.DEFAULT_QUERY_TERM_SKIPS_AUTO, Configuration.DEFAULT_QUERY_TERMS_MIN_SHOULD_MATCH);
     }
     
     public SequenceSearcher(Configuration conf) throws Exception {
@@ -133,16 +134,19 @@ public class SequenceSearcher implements Closeable {
             throw new IllegalArgumentException("kmerSize must be larger than 0");
         }
         
-        initialize(new File(conf.getIndexPath()), conf.getKmerSize(), conf.getQueryTermSkips(), conf.getQueryMinShouldMatch());
+        initialize(new File(conf.getIndexPath()), conf.getKmerSize(), conf.getQueryTermSkips(), conf.getQueryTermSkipsAuto(), conf.getQueryMinShouldMatch());
     }
     
-    private void initialize(File indexPath, int kmerSize, int skips, double minShouldMatch) throws Exception {
+    private void initialize(File indexPath, int kmerSize, int skips, boolean skipsAuto, double minShouldMatch) throws Exception {
         if(!indexPath.exists() || !indexPath.isDirectory()) {
             throw new IllegalArgumentException("indexPath is not a directory or does not exist");
         }
         
         this.indexPath = indexPath;
-        this.analyzer = new KmerQueryAnalyzer(kmerSize, skips);
+        this.quickAnalyzer = new KmerQueryAnalyzer(kmerSize, skips);
+        if(skipsAuto) {
+            this.detailedAnalyzer = new KmerQueryAnalyzer(kmerSize, 1);
+        }
         Directory dir = new MMapDirectory(this.indexPath.toPath()); 
         this.indexReader = DirectoryReader.open(dir);
         this.indexSearcher = new IndexSearcher(this.indexReader);
@@ -158,7 +162,7 @@ public class SequenceSearcher implements Closeable {
             throw new IllegalArgumentException("sequence is null or empty");
         }
         
-        QueryParser queryParser = new QueryParser(IndexConstants.FIELD_SEQUENCE, this.analyzer);
+        QueryParser queryParser = new QueryParser(IndexConstants.FIELD_SEQUENCE, this.quickAnalyzer);
         Query q = queryParser.createMinShouldMatchQuery(IndexConstants.FIELD_SEQUENCE, sequence, (float) minShouldMatch);
         
         int hitsPerPage = 10;
@@ -166,6 +170,16 @@ public class SequenceSearcher implements Closeable {
         this.indexSearcher.search(q, collector);
         TopDocs topdocs = collector.topDocs();
         ScoreDoc[] hits = topdocs.scoreDocs;
+        
+        if(hits.length == 0) {
+            // second trial
+            queryParser = new QueryParser(IndexConstants.FIELD_SEQUENCE, this.detailedAnalyzer);
+            q = queryParser.createMinShouldMatchQuery(IndexConstants.FIELD_SEQUENCE, sequence, (float) minShouldMatch);
+            
+            this.indexSearcher.search(q, collector);
+            topdocs = collector.topDocs();
+            hits = topdocs.scoreDocs;
+        }
         
         List<SearchResult> resultArr = new ArrayList<SearchResult>();
         
@@ -232,7 +246,7 @@ public class SequenceSearcher implements Closeable {
                 @Override
                 public void run() {
                     try {
-                        QueryParser queryParser = new QueryParser(IndexConstants.FIELD_SEQUENCE, analyzer);
+                        QueryParser queryParser = new QueryParser(IndexConstants.FIELD_SEQUENCE, quickAnalyzer);
                         Query q = queryParser.createMinShouldMatchQuery(IndexConstants.FIELD_SEQUENCE, sequence, (float) _minShouldMatch);
                         
                         int hitsPerPage = 10;
@@ -258,6 +272,35 @@ public class SequenceSearcher implements Closeable {
                             bresult = new BulkSearchResult(header, sequence, resultArr);
                         } else {
                             bresult = new BulkSearchResult(header, sequence, null);
+                        }
+                        
+                        if(bresult.getType() != SearchResultType.CLASSIFIED) {
+                            // detailed - second trial
+                            
+                            queryParser = new QueryParser(IndexConstants.FIELD_SEQUENCE, detailedAnalyzer);
+                            q = queryParser.createMinShouldMatchQuery(IndexConstants.FIELD_SEQUENCE, sequence, (float) _minShouldMatch);
+
+                            indexSearcher.search(q, collector);
+                            topdocs = collector.topDocs();
+                            hits = topdocs.scoreDocs;
+
+                            if(hits.length > 0) {
+                                List<SearchResult> resultArr = new ArrayList<SearchResult>();
+
+                                double topscore = topdocs.getMaxScore();
+                                for(int i=0;i<hits.length;++i) {
+                                    if(topscore - hits[i].score <= 1) {
+                                        int docId = hits[i].doc;
+                                        Document d = indexSearcher.doc(docId);
+                                        SearchResult result = new SearchResult(docId, d, i, hits[i].score);
+                                        resultArr.add(result);
+                                    }
+                                }
+
+                                bresult = new BulkSearchResult(header, sequence, resultArr);
+                            } else {
+                                bresult = new BulkSearchResult(header, sequence, null);
+                            }
                         }
                         
                         JsonSerializer serializer = new JsonSerializer();
@@ -293,7 +336,10 @@ public class SequenceSearcher implements Closeable {
 
     @Override
     public void close() throws IOException {
-        this.analyzer.close();
+        this.quickAnalyzer.close();
+        if(this.detailedAnalyzer != null) {
+            this.detailedAnalyzer.close();
+        }
         this.indexReader.close();
     }
 }

@@ -116,12 +116,12 @@ public class BulkSearchResultSummary {
         this.vague++;
     }
 
-    @JsonProperty("classifed")
+    @JsonProperty("classified")
     public long getClassified() {
         return classified;
     }
 
-    @JsonProperty("classifed")
+    @JsonProperty("classified")
     public void setClassified(long classified) {
         this.classified = classified;
     }
