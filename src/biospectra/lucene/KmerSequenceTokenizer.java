@@ -146,7 +146,6 @@ public class KmerSequenceTokenizer extends Tokenizer {
                 this.termAtt.setEmpty().append(this.bufferString, this.inBufferOffset, this.inBufferOffset + this.kmerSize);
                 this.offsetAtt.setOffset(this.bufferStartOffset + this.inBufferOffset, this.bufferStartOffset + this.inBufferOffset + this.kmerSize);
                 this.inBufferOffset += 1 + curSkip;
-                //LOG.info(this.termAtt.toString() + " : " + this.offsetAtt.startOffset() + "~" + this.offsetAtt.endOffset());
                 return true;
             } else {
                 this.inBufferOffset += 1 + curSkip;

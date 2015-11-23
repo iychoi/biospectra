@@ -48,7 +48,7 @@ public class TaxonDB implements Closeable {
             // load sqlite-jdbc driver
             Class.forName("org.sqlite.JDBC");
         } catch (ClassNotFoundException ex) {
-            LOG.error(ex);
+            LOG.error("Exception occurred during sqlite-jdbc driver loading", ex);
         }
     }
     

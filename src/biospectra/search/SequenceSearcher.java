@@ -313,7 +313,7 @@ public class SequenceSearcher implements Closeable {
                             bw.write(json + "\n");
                         }
                     } catch (Exception ex) {
-                        LOG.error(ex);
+                        LOG.error("Exception occurred during search", ex);
                     }
                 }
             };

@@ -46,7 +46,7 @@ public class KmerQueryAnalyzer extends Analyzer {
             LowerSequenceFormFilter filter = new LowerSequenceFormFilter(tokenizer, true);
             return new TokenStreamComponents(tokenizer, filter);
         } catch (IOException ex) {
-            LOG.error(ex);
+            LOG.error("Exception occurred during tokenization", ex);
             return null;
         }
     }
