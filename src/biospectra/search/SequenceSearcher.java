@@ -176,6 +176,7 @@ public class SequenceSearcher implements Closeable {
             queryParser = new QueryParser(IndexConstants.FIELD_SEQUENCE, this.detailedAnalyzer);
             q = queryParser.createMinShouldMatchQuery(IndexConstants.FIELD_SEQUENCE, sequence, (float) minShouldMatch);
             
+            collector = TopScoreDocCollector.create(hitsPerPage);
             this.indexSearcher.search(q, collector);
             topdocs = collector.topDocs();
             hits = topdocs.scoreDocs;
@@ -280,6 +281,7 @@ public class SequenceSearcher implements Closeable {
                             queryParser = new QueryParser(IndexConstants.FIELD_SEQUENCE, detailedAnalyzer);
                             q = queryParser.createMinShouldMatchQuery(IndexConstants.FIELD_SEQUENCE, sequence, (float) _minShouldMatch);
 
+                            collector = TopScoreDocCollector.create(hitsPerPage);
                             indexSearcher.search(q, collector);
                             topdocs = collector.topDocs();
                             hits = topdocs.scoreDocs;
