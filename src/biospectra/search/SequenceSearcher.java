@@ -176,13 +176,15 @@ public class SequenceSearcher implements Closeable {
         
         if(hits.length == 0 || hits.length == hitsPerPage) {
             // second trial
-            queryParser = new QueryParser(IndexConstants.FIELD_SEQUENCE, this.detailedAnalyzer);
-            q = queryParser.createMinShouldMatchQuery(IndexConstants.FIELD_SEQUENCE, sequence, (float) minShouldMatch);
-            
-            collector = TopScoreDocCollector.create(hitsPerPage);
-            this.indexSearcher.search(q, collector);
-            topdocs = collector.topDocs();
-            hits = topdocs.scoreDocs;
+            if(this.detailedAnalyzer != null) {
+                queryParser = new QueryParser(IndexConstants.FIELD_SEQUENCE, this.detailedAnalyzer);
+                q = queryParser.createMinShouldMatchQuery(IndexConstants.FIELD_SEQUENCE, sequence, (float) minShouldMatch);
+
+                collector = TopScoreDocCollector.create(hitsPerPage);
+                this.indexSearcher.search(q, collector);
+                topdocs = collector.topDocs();
+                hits = topdocs.scoreDocs;
+            }
         }
         
         List<SearchResult> resultArr = new ArrayList<SearchResult>();
@@ -280,31 +282,32 @@ public class SequenceSearcher implements Closeable {
                         
                         if(bresult.getType() != SearchResultType.CLASSIFIED || hits.length == hitsPerPage) {
                             // detailed - second trial
-                            
-                            queryParser = new QueryParser(IndexConstants.FIELD_SEQUENCE, detailedAnalyzer);
-                            q = queryParser.createMinShouldMatchQuery(IndexConstants.FIELD_SEQUENCE, sequence, (float) _minShouldMatch);
+                            if(detailedAnalyzer != null) {
+                                queryParser = new QueryParser(IndexConstants.FIELD_SEQUENCE, detailedAnalyzer);
+                                q = queryParser.createMinShouldMatchQuery(IndexConstants.FIELD_SEQUENCE, sequence, (float) _minShouldMatch);
 
-                            collector = TopScoreDocCollector.create(hitsPerPage);
-                            indexSearcher.search(q, collector);
-                            topdocs = collector.topDocs();
-                            hits = topdocs.scoreDocs;
+                                collector = TopScoreDocCollector.create(hitsPerPage);
+                                indexSearcher.search(q, collector);
+                                topdocs = collector.topDocs();
+                                hits = topdocs.scoreDocs;
 
-                            if(hits.length > 0) {
-                                List<SearchResult> resultArr = new ArrayList<SearchResult>();
+                                if(hits.length > 0) {
+                                    List<SearchResult> resultArr = new ArrayList<SearchResult>();
 
-                                double topscore = topdocs.getMaxScore();
-                                for(int i=0;i<hits.length;++i) {
-                                    if(topscore - hits[i].score <= 1) {
-                                        int docId = hits[i].doc;
-                                        Document d = indexSearcher.doc(docId);
-                                        SearchResult result = new SearchResult(docId, d, i, hits[i].score);
-                                        resultArr.add(result);
+                                    double topscore = topdocs.getMaxScore();
+                                    for(int i=0;i<hits.length;++i) {
+                                        if(topscore - hits[i].score <= 1) {
+                                            int docId = hits[i].doc;
+                                            Document d = indexSearcher.doc(docId);
+                                            SearchResult result = new SearchResult(docId, d, i, hits[i].score);
+                                            resultArr.add(result);
+                                        }
                                     }
-                                }
 
-                                bresult = new BulkSearchResult(header, sequence, resultArr);
-                            } else {
-                                bresult = new BulkSearchResult(header, sequence, null);
+                                    bresult = new BulkSearchResult(header, sequence, resultArr);
+                                } else {
+                                    bresult = new BulkSearchResult(header, sequence, null);
+                                }
                             }
                         }
                         
