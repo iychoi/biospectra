@@ -30,8 +30,8 @@ import org.codehaus.jackson.annotate.JsonProperty;
 public class Configuration {
     private static final Log LOG = LogFactory.getLog(Configuration.class);
     
-    public static final int DEFAULT_KMERSIZE = 20;
-    public static final int DEFAULT_QUERY_TERM_SKIPS = 20;
+    public static final int DEFAULT_KMERSIZE = 10;
+    public static final int DEFAULT_QUERY_TERM_SKIPS = 5;
     public static final double DEFAULT_QUERY_TERMS_MIN_SHOULD_MATCH = 0.5;
     public static final boolean DEFAULT_QUERY_TERM_SKIPS_AUTO = true;
 

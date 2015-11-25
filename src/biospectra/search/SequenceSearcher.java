@@ -40,6 +40,7 @@ import org.apache.lucene.document.Document;
 import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.queryparser.classic.QueryParser;
+import org.apache.lucene.search.BooleanQuery;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.ScoreDoc;
@@ -145,12 +146,14 @@ public class SequenceSearcher implements Closeable {
         this.indexPath = indexPath;
         this.quickAnalyzer = new KmerQueryAnalyzer(kmerSize, skips);
         if(skipsAuto) {
-            this.detailedAnalyzer = new KmerQueryAnalyzer(kmerSize, 1);
+            this.detailedAnalyzer = new KmerQueryAnalyzer(kmerSize, 0);
         }
         Directory dir = new MMapDirectory(this.indexPath.toPath()); 
         this.indexReader = DirectoryReader.open(dir);
         this.indexSearcher = new IndexSearcher(this.indexReader);
         this.minShouldMatch = minShouldMatch;
+        
+        BooleanQuery.setMaxClauseCount(4096);
     }
     
     public List<SearchResult> search(String sequence) throws Exception {
@@ -171,7 +174,7 @@ public class SequenceSearcher implements Closeable {
         TopDocs topdocs = collector.topDocs();
         ScoreDoc[] hits = topdocs.scoreDocs;
         
-        if(hits.length == 0) {
+        if(hits.length == 0 || hits.length == hitsPerPage) {
             // second trial
             queryParser = new QueryParser(IndexConstants.FIELD_SEQUENCE, this.detailedAnalyzer);
             q = queryParser.createMinShouldMatchQuery(IndexConstants.FIELD_SEQUENCE, sequence, (float) minShouldMatch);
@@ -275,7 +278,7 @@ public class SequenceSearcher implements Closeable {
                             bresult = new BulkSearchResult(header, sequence, null);
                         }
                         
-                        if(bresult.getType() != SearchResultType.CLASSIFIED) {
+                        if(bresult.getType() != SearchResultType.CLASSIFIED || hits.length == hitsPerPage) {
                             // detailed - second trial
                             
                             queryParser = new QueryParser(IndexConstants.FIELD_SEQUENCE, detailedAnalyzer);
