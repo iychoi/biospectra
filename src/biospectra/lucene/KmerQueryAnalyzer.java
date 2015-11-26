@@ -37,6 +37,14 @@ public class KmerQueryAnalyzer extends Analyzer {
         this.skips = skips;
     }
     
+    public int getK() {
+        return this.k;
+    }
+    
+    public int getSkips() {
+        return this.skips;
+    }
+    
     @Override
     protected TokenStreamComponents createComponents(String fieldName) {
         try {

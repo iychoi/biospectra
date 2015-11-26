@@ -38,13 +38,11 @@ import org.apache.commons.logging.LogFactory;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.CachingTokenFilter;
 import org.apache.lucene.analysis.TokenStream;
-import org.apache.lucene.analysis.tokenattributes.PositionIncrementAttribute;
 import org.apache.lucene.analysis.tokenattributes.TermToBytesRefAttribute;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.Term;
-import org.apache.lucene.queryparser.classic.QueryParser;
 import org.apache.lucene.search.BooleanClause;
 import org.apache.lucene.search.BooleanQuery;
 import org.apache.lucene.search.IndexSearcher;
@@ -69,11 +67,14 @@ public class SequenceSearcher implements Closeable {
     private static final Log LOG = LogFactory.getLog(SequenceSearcher.class);
     
     private File indexPath;
-    private Analyzer quickAnalyzer;
-    private Analyzer detailedAnalyzer;
+    private KmerQueryAnalyzer quickAnalyzer;
+    private KmerQueryAnalyzer detailedAnalyzer;
     private IndexReader indexReader;
     private IndexSearcher indexSearcher;
     private double minShouldMatch;
+    private int kmerSize;
+    private int skips;
+    private boolean skipsAuto;
     
     public SequenceSearcher(String indexPath, int kmerSize) throws Exception {
         if(indexPath == null) {
@@ -153,23 +154,26 @@ public class SequenceSearcher implements Closeable {
         }
         
         this.indexPath = indexPath;
-        this.quickAnalyzer = new KmerQueryAnalyzer(kmerSize, skips);
-        if(skipsAuto) {
-            this.detailedAnalyzer = new KmerQueryAnalyzer(kmerSize, 0);
+        this.kmerSize = kmerSize;
+        this.skips = skips;
+        this.quickAnalyzer = new KmerQueryAnalyzer(this.kmerSize, this.skips);
+        this.skipsAuto = skipsAuto;
+        if(this.skipsAuto) {
+            this.detailedAnalyzer = new KmerQueryAnalyzer(this.kmerSize, 0);
         }
         Directory dir = new MMapDirectory(this.indexPath.toPath()); 
         this.indexReader = DirectoryReader.open(dir);
         this.indexSearcher = new IndexSearcher(this.indexReader);
         this.minShouldMatch = minShouldMatch;
         
-        BooleanQuery.setMaxClauseCount(4096);
+        BooleanQuery.setMaxClauseCount(10000);
     }
     
     public List<SearchResult> search(String sequence) throws Exception {
         return search(sequence, this.minShouldMatch);
     }
     
-    protected final BooleanQuery createKgramFieldQuery(Analyzer analyzer, BooleanClause.Occur operator, String field, String queryText) {
+    protected final BooleanQuery createKgramFieldQuery(KmerQueryAnalyzer analyzer, String field, String queryText) {
         try (TokenStream source = analyzer.tokenStream(field, queryText);
             CachingTokenFilter stream = new CachingTokenFilter(source)) {
 
@@ -227,7 +231,7 @@ public class SequenceSearcher implements Closeable {
         }
     }
     
-    protected final BooleanQuery create2KgramFieldQuery(Analyzer analyzer, BooleanClause.Occur operator, String field, String queryText) {
+    protected final BooleanQuery create2KgramFieldQuery(KmerQueryAnalyzer analyzer, String field, String queryText) {
         try (TokenStream source = analyzer.tokenStream(field, queryText);
             CachingTokenFilter stream = new CachingTokenFilter(source)) {
 
@@ -274,7 +278,7 @@ public class SequenceSearcher implements Closeable {
                         termArr[1] = t;
                         
                         PhraseQuery.Builder pq = new PhraseQuery.Builder();
-                        pq.setSlop(3);
+                        pq.setSlop(analyzer.getSkips() * 2);
                         pq.add(termArr[0]);
                         pq.add(termArr[1]);
                         
@@ -294,8 +298,9 @@ public class SequenceSearcher implements Closeable {
         }
     }
     
-    private BooleanQuery createQuery(Analyzer analyzer, String field, String queryText, double minShouldMatch) {
-        BooleanQuery kgramQuery = createKgramFieldQuery(analyzer, BooleanClause.Occur.SHOULD, field, queryText);
+    private BooleanQuery createQuery(KmerQueryAnalyzer analyzer, String field, String queryText, double minShouldMatch) {
+        /*
+        BooleanQuery kgramQuery = createKgramFieldQuery(analyzer, field, queryText);
         BooleanQuery.Builder builder1 = new BooleanQuery.Builder();
         builder1.setDisableCoord(kgramQuery.isCoordDisabled());
         builder1.setMinimumNumberShouldMatch((int) (minShouldMatch * kgramQuery.clauses().size()));
@@ -303,8 +308,8 @@ public class SequenceSearcher implements Closeable {
             builder1.add(clause);
         }
         kgramQuery = builder1.build();
-        
-        BooleanQuery proximityQuery = create2KgramFieldQuery(analyzer, BooleanClause.Occur.SHOULD, field, queryText);
+        */
+        BooleanQuery proximityQuery = create2KgramFieldQuery(analyzer, field, queryText);
         BooleanQuery.Builder builder2 = new BooleanQuery.Builder();
         builder2.setDisableCoord(proximityQuery.isCoordDisabled());
         builder2.setMinimumNumberShouldMatch((int) (minShouldMatch * proximityQuery.clauses().size()));
@@ -315,7 +320,7 @@ public class SequenceSearcher implements Closeable {
         
         
         BooleanQuery.Builder builderFinal = new BooleanQuery.Builder();
-        builderFinal.add(kgramQuery, BooleanClause.Occur.MUST);
+        //builderFinal.add(kgramQuery, BooleanClause.Occur.MUST);
         builderFinal.add(proximityQuery, BooleanClause.Occur.MUST);
         
         return builderFinal.build();
@@ -510,7 +515,7 @@ public class SequenceSearcher implements Closeable {
     @Override
     public void close() throws IOException {
         this.quickAnalyzer.close();
-        if(this.detailedAnalyzer != null) {
+        if(this.skipsAuto) {
             this.detailedAnalyzer.close();
         }
         this.indexReader.close();
