@@ -33,7 +33,6 @@ import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.NIOFSDirectory;
-import org.apache.lucene.util.Version;
 import org.yeastrc.fasta.FASTAEntry;
 import org.yeastrc.fasta.FASTAReader;
 

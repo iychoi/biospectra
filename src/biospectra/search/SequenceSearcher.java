@@ -18,6 +18,7 @@ package biospectra.search;
 import biospectra.Configuration;
 import biospectra.index.IndexConstants;
 import biospectra.lucene.KmerQueryAnalyzer;
+import biospectra.search.BulkSearchResult.SearchResultType;
 import biospectra.utils.FastaFileReader;
 import biospectra.utils.JsonSerializer;
 import java.io.BufferedWriter;
@@ -45,9 +46,7 @@ import org.apache.lucene.search.BooleanClause;
 import org.apache.lucene.search.BooleanQuery;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.PhraseQuery;
-import org.apache.lucene.search.Query;
 import org.apache.lucene.search.ScoreDoc;
-import org.apache.lucene.search.TermQuery;
 import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.search.TopScoreDocCollector;
 import org.apache.lucene.store.Directory;
@@ -135,64 +134,6 @@ public class SequenceSearcher implements Closeable {
         return search(sequence, this.minShouldMatch);
     }
     
-    protected final BooleanQuery createKgramFieldQuery(KmerQueryAnalyzer analyzer, String field, String queryText) {
-        try (TokenStream source = analyzer.tokenStream(field, queryText);
-            CachingTokenFilter stream = new CachingTokenFilter(source)) {
-
-            TermToBytesRefAttribute termAtt = stream.getAttribute(TermToBytesRefAttribute.class);
-            
-            if (termAtt == null) {
-                return null;
-            }
-
-            // phase 1: read through the stream and assess the situation:
-            // counting the number of tokens/positions and marking if we have any synonyms.
-            int numTokens = 0;
-
-            stream.reset();
-            while (stream.incrementToken()) {
-                numTokens++;
-            }
-
-            // phase 2: based on token count, presence of synonyms, and options
-            // formulate a single term, boolean, or phrase.
-            if (numTokens == 0) {
-                return null;
-            } else if (numTokens == 1) {
-                // single term
-                BooleanQuery.Builder q = new BooleanQuery.Builder();
-                q.setDisableCoord(true);
-                
-                TermToBytesRefAttribute termAttB = stream.getAttribute(TermToBytesRefAttribute.class);
-    
-                stream.reset();
-                if (!stream.incrementToken()) {
-                  throw new AssertionError();
-                }
-                
-                Query currentQuery = new TermQuery(new Term(field, BytesRef.deepCopyOf(termAttB.getBytesRef())));
-                q.add(currentQuery, BooleanClause.Occur.MUST);
-                
-                return q.build();
-            } else {
-                BooleanQuery.Builder q = new BooleanQuery.Builder();
-                q.setDisableCoord(false);
-
-                TermToBytesRefAttribute termAttB = stream.getAttribute(TermToBytesRefAttribute.class);
-
-                stream.reset();
-                while (stream.incrementToken()) {
-                    Query currentQuery = new TermQuery(new Term(field, BytesRef.deepCopyOf(termAttB.getBytesRef())));
-                    q.add(currentQuery, BooleanClause.Occur.SHOULD);
-                }
-
-                return q.build();
-            }
-        } catch (IOException e) {
-            throw new RuntimeException("Error analyzing query text", e);
-        }
-    }
-    
     protected final BooleanQuery create2KgramFieldQuery(KmerQueryAnalyzer analyzer, String field, String queryText) {
         try (TokenStream source = analyzer.tokenStream(field, queryText);
             CachingTokenFilter stream = new CachingTokenFilter(source)) {
@@ -260,35 +201,93 @@ public class SequenceSearcher implements Closeable {
         }
     }
     
+    protected final BooleanQuery create2KgramOverwrappedFieldQuery(KmerQueryAnalyzer analyzer, String field, String queryText) {
+        try (TokenStream source = analyzer.tokenStream(field, queryText);
+            CachingTokenFilter stream = new CachingTokenFilter(source)) {
+
+            TermToBytesRefAttribute termAtt = stream.getAttribute(TermToBytesRefAttribute.class);
+            
+            if (termAtt == null) {
+                return null;
+            }
+
+            // phase 1: read through the stream and assess the situation:
+            // counting the number of tokens/positions and marking if we have any synonyms.
+            int numTokens = 0;
+
+            stream.reset();
+            while (stream.incrementToken()) {
+                numTokens++;
+            }
+
+            // phase 2: based on token count, presence of synonyms, and options
+            // formulate a single term, boolean, or phrase.
+            if (numTokens == 0) {
+                return null;
+            } else if (numTokens == 1) {
+                // single term
+                return null;
+            } else {
+                Term termArr[] = new Term[2];
+                for(int i=0;i<2;i++) {
+                    termArr[i] = null;
+                }
+
+                BooleanQuery.Builder q = new BooleanQuery.Builder();
+                q.setDisableCoord(false);
+                
+                TermToBytesRefAttribute termAttB = stream.getAttribute(TermToBytesRefAttribute.class);
+
+                stream.reset();
+                int count = 0;
+                while (stream.incrementToken()) {
+                    Term t = new Term(field, BytesRef.deepCopyOf(termAttB.getBytesRef()));
+                    if(count == 0) {
+                        termArr[0] = t;
+                    } else {
+                        termArr[1] = t;
+                        
+                        PhraseQuery.Builder pq = new PhraseQuery.Builder();
+                        pq.setSlop(analyzer.getSkips() * 2);
+                        pq.add(termArr[0]);
+                        pq.add(termArr[1]);
+                        
+                        q.add(pq.build(), BooleanClause.Occur.SHOULD);
+                        
+                        termArr[0] = termArr[1];
+                        termArr[1] = null;
+                    }
+                    
+                    count++;
+                }
+
+                return q.build();
+            }
+        } catch (IOException e) {
+            throw new RuntimeException("Error analyzing query text", e);
+        }
+    }
+    
     private BooleanQuery createQuery(KmerQueryAnalyzer analyzer, String field, String queryText, double minShouldMatch) {
-        /*
-        BooleanQuery kgramQuery = createKgramFieldQuery(analyzer, field, queryText);
-        BooleanQuery.Builder builder1 = new BooleanQuery.Builder();
-        builder1.setDisableCoord(kgramQuery.isCoordDisabled());
-        builder1.setMinimumNumberShouldMatch((int) (minShouldMatch * kgramQuery.clauses().size()));
-        for (BooleanClause clause : kgramQuery) {
-            builder1.add(clause);
-        }
-        kgramQuery = builder1.build();
-        */
         BooleanQuery proximityQuery = create2KgramFieldQuery(analyzer, field, queryText);
-        BooleanQuery.Builder proximityQueryBuilder = new BooleanQuery.Builder();
-        proximityQueryBuilder.setDisableCoord(proximityQuery.isCoordDisabled());
-        proximityQueryBuilder.setMinimumNumberShouldMatch((int) (minShouldMatch * proximityQuery.clauses().size()));
+        BooleanQuery.Builder booleanQueryBuilder = new BooleanQuery.Builder();
+        booleanQueryBuilder.setDisableCoord(proximityQuery.isCoordDisabled());
+        booleanQueryBuilder.setMinimumNumberShouldMatch((int) (minShouldMatch * proximityQuery.clauses().size()));
         for (BooleanClause clause : proximityQuery) {
-            proximityQueryBuilder.add(clause);
+            booleanQueryBuilder.add(clause);
         }
-        return proximityQueryBuilder.build();
-        
-        //proximityQuery = builder2.build();
-        
-        /*
-        BooleanQuery.Builder builderFinal = new BooleanQuery.Builder();
-        builderFinal.add(kgramQuery, BooleanClause.Occur.MUST);
-        builderFinal.add(proximityQuery, BooleanClause.Occur.MUST);
-        
-        return builderFinal.build();
-        */
+        return booleanQueryBuilder.build();
+    }
+    
+    private BooleanQuery createQueryDetailed(KmerQueryAnalyzer analyzer, String field, String queryText, double minShouldMatch) {
+        BooleanQuery proximityQuery = create2KgramOverwrappedFieldQuery(analyzer, field, queryText);
+        BooleanQuery.Builder booleanQueryBuilder = new BooleanQuery.Builder();
+        booleanQueryBuilder.setDisableCoord(proximityQuery.isCoordDisabled());
+        booleanQueryBuilder.setMinimumNumberShouldMatch((int) (minShouldMatch * proximityQuery.clauses().size()));
+        for (BooleanClause clause : proximityQuery) {
+            booleanQueryBuilder.add(clause);
+        }
+        return booleanQueryBuilder.build();
     }
     
     public List<SearchResult> search(String sequence, double minShouldMatch) throws Exception {
@@ -303,20 +302,6 @@ public class SequenceSearcher implements Closeable {
         this.indexSearcher.search(q, collector);
         TopDocs topdocs = collector.topDocs();
         ScoreDoc[] hits = topdocs.scoreDocs;
-        
-        /*
-        if(hits.length == 0 || hits.length == hitsPerPage) {
-            // second trial
-            if(this.queryAnalyzer != null) {
-                q = createQuery(this.queryAnalyzer, IndexConstants.FIELD_SEQUENCE, sequence, minShouldMatch);
-                
-                collector = TopScoreDocCollector.create(hitsPerPage);
-                this.indexSearcher.search(q, collector);
-                topdocs = collector.topDocs();
-                hits = topdocs.scoreDocs;
-            }
-        }
-        */
         
         List<SearchResult> resultArr = new ArrayList<SearchResult>();
         
@@ -372,7 +357,6 @@ public class SequenceSearcher implements Closeable {
                 new ArrayBlockingQueue<Runnable>(queueSize, true), 
                 new ThreadPoolExecutor.CallerRunsPolicy());
         
-        long n = 0;
         final double _minShouldMatch = minShouldMatch;
         while((read = reader.readNext()) != null) {
             final String sequence = read.getSequence();
@@ -410,11 +394,10 @@ public class SequenceSearcher implements Closeable {
                             bresult = new BulkSearchResult(header, sequence, null);
                         }
                         
-                        /*
-                        if(bresult.getType() != SearchResultType.CLASSIFIED || hits.length == hitsPerPage) {
+                        if(bresult.getType() != SearchResultType.CLASSIFIED) {
                             // detailed - second trial
                             if(queryAnalyzer != null) {
-                                q = createQuery(queryAnalyzer, IndexConstants.FIELD_SEQUENCE, sequence, _minShouldMatch);
+                                q = createQueryDetailed(queryAnalyzer, IndexConstants.FIELD_SEQUENCE, sequence, _minShouldMatch);
 
                                 collector = TopScoreDocCollector.create(hitsPerPage);
                                 indexSearcher.search(q, collector);
@@ -440,7 +423,6 @@ public class SequenceSearcher implements Closeable {
                                 }
                             }
                         }
-                        */
                         
                         JsonSerializer serializer = new JsonSerializer();
                         String json = serializer.toJson(bresult);
@@ -457,8 +439,6 @@ public class SequenceSearcher implements Closeable {
                 }
             };
             executor.submit(worker);
-            //System.out.println("worker" + n + " submitted");
-            n++;
         }
         executor.shutdown();
         executor.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
