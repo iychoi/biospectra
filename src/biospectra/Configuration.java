@@ -31,11 +31,15 @@ public class Configuration {
     private static final Log LOG = LogFactory.getLog(Configuration.class);
     
     public static final int DEFAULT_KMERSIZE = 10;
+    public static final int DEFAULT_KMERSKIPS = 5;
     public static final double DEFAULT_QUERY_TERMS_MIN_SHOULD_MATCH = 0.5;
+    public static final int DEFAULT_WORKER_THREADS = 4;
     
     private String indexPath;
     private int kmerSize = DEFAULT_KMERSIZE;
+    private int kmerSkips = DEFAULT_KMERSKIPS;
     private double queryMinShouldMatch = DEFAULT_QUERY_TERMS_MIN_SHOULD_MATCH;
+    private int workerThreads = DEFAULT_WORKER_THREADS;
 
     public static Configuration createInstance(File file) throws IOException {
         if(file == null) {
@@ -79,6 +83,16 @@ public class Configuration {
         this.kmerSize = kmerSize;
     }
     
+    @JsonProperty("kmer_skips")
+    public int getKmerSkips() {
+        return kmerSkips;
+    }
+    
+    @JsonProperty("kmer_skips")
+    public void setKmerSkips(int kmerSkips) {
+        this.kmerSkips = kmerSkips;
+    }
+    
     @JsonProperty("query_term_min_should_match")
     public double getQueryMinShouldMatch() {
         return queryMinShouldMatch;
@@ -87,6 +101,16 @@ public class Configuration {
     @JsonProperty("query_term_min_should_match")
     public void setQueryMinShouldMatch(double queryMinShouldMatch) {
         this.queryMinShouldMatch = queryMinShouldMatch;
+    }
+    
+    @JsonProperty("worker_threads")
+    public int getWorkerThreads() {
+        return workerThreads;
+    }
+
+    @JsonProperty("worker_threads")
+    public void setWorkerThreads(int workerThreads) {
+        this.workerThreads = workerThreads;
     }
     
     @JsonIgnore

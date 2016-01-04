@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package biospectra.search;
+package biospectra.classify.beans;
 
 import biospectra.utils.JsonSerializer;
 import java.io.File;
@@ -26,7 +26,7 @@ import org.codehaus.jackson.annotate.JsonProperty;
  *
  * @author iychoi
  */
-public class BulkSearchResultSummary {
+public class ClassificationResultSummary {
     private String queryFilename;
     private long total;
     private long unknown;
@@ -35,7 +35,7 @@ public class BulkSearchResultSummary {
     private Date startTime;
     private Date endTime;
     
-    public BulkSearchResultSummary() {
+    public ClassificationResultSummary() {
         
     }
     
@@ -133,7 +133,7 @@ public class BulkSearchResultSummary {
     }
     
     @JsonIgnore
-    public void report(BulkSearchResult bresult) {
+    public void report(ClassificationResult bresult) {
         this.total++;
         switch(bresult.getType()) {
             case VAGUE:

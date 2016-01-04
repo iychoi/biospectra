@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package biospectra.search;
+package biospectra.classify.beans;
 
 import biospectra.utils.JsonSerializer;
 import java.io.File;
@@ -27,9 +27,9 @@ import org.codehaus.jackson.annotate.JsonProperty;
  *
  * @author iychoi
  */
-public class BulkSearchResult {
+public class ClassificationResult {
 
-    public enum SearchResultType {
+    public enum ClassificationResultType {
         UNKNOWN,
         VAGUE,
         CLASSIFIED,
@@ -37,47 +37,55 @@ public class BulkSearchResult {
 
     private String queryHeader;
     private String query;
-    private List<SearchResult> result = new ArrayList<SearchResult>();
-    private SearchResultType type;
+    private List<SearchResultEntry> result = new ArrayList<SearchResultEntry>();
+    private ClassificationResultType type;
             
-    public BulkSearchResult(String query, List<SearchResult> result) {
-        initialize(null, query, result);
+    public ClassificationResult(String query, List<SearchResultEntry> result) {
+        initialize(null, query, result, null);
     }
     
-    public BulkSearchResult(String queryHeader, String query, List<SearchResult> result) {
-        initialize(queryHeader, query, result);
+    public ClassificationResult(String queryHeader, String query, List<SearchResultEntry> result) {
+        initialize(queryHeader, query, result, null);
     }
     
-    private void initialize(String queryHeader, String query, List<SearchResult> result) {
+    public ClassificationResult(String queryHeader, String query, List<SearchResultEntry> result, ClassificationResultType type) {
+        initialize(queryHeader, query, result, type);
+    }
+    
+    private void initialize(String queryHeader, String query, List<SearchResultEntry> result, ClassificationResultType type) {
         this.queryHeader = queryHeader;
         this.query = query;
         if(result != null) {
             this.result.addAll(result);
-            this.type = determineType(result);
+            if(type == null) {
+                this.type = determineType(result);
+            } else {
+                this.type = type;
+            }
         } else {
-            this.type = SearchResultType.UNKNOWN;
+            this.type = ClassificationResultType.UNKNOWN;
         }
     }
     
     @JsonIgnore
-    private SearchResultType determineType(List<SearchResult> result) {
+    private ClassificationResultType determineType(List<SearchResultEntry> result) {
         if(result.isEmpty()) {
-            return SearchResultType.UNKNOWN;
+            return ClassificationResultType.UNKNOWN;
         } else if(result.size() == 1) {
-            return SearchResultType.CLASSIFIED;
+            return ClassificationResultType.CLASSIFIED;
         } else {
-            List<SearchResult> top = new ArrayList<SearchResult>();
+            List<SearchResultEntry> top = new ArrayList<SearchResultEntry>();
             double score_top = result.get(0).getScore();
-            for(SearchResult r : result) {
+            for(SearchResultEntry r : result) {
                 if(r.getScore() == score_top) {
                     top.add(r);
                 }
             }
             
             if(top.size() > 1) {
-                return SearchResultType.VAGUE;
+                return ClassificationResultType.VAGUE;
             } else {
-                return SearchResultType.CLASSIFIED;
+                return ClassificationResultType.CLASSIFIED;
             }
         }
     }
@@ -103,22 +111,22 @@ public class BulkSearchResult {
     }
 
     @JsonProperty("result")
-    public List<SearchResult> getResult() {
+    public List<SearchResultEntry> getResult() {
         return result;
     }
 
     @JsonProperty("result")
-    public void addResult(List<SearchResult> result) {
+    public void addResult(List<SearchResultEntry> result) {
         this.result.addAll(result);
     }
 
     @JsonProperty("type")
-    public SearchResultType getType() {
+    public ClassificationResultType getType() {
         return type;
     }
 
     @JsonProperty("type")
-    public void setType(SearchResultType type) {
+    public void setType(ClassificationResultType type) {
         this.type = type;
     }
     
@@ -126,7 +134,7 @@ public class BulkSearchResult {
     @JsonIgnore
     public String toString() {
         StringBuilder sb = new StringBuilder();
-        for(SearchResult sr: this.result) {
+        for(SearchResultEntry sr: this.result) {
             sb.append(sr.toString());
             sb.append("\n");
         }

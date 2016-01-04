@@ -48,30 +48,6 @@ public class Indexer implements Closeable {
     private Analyzer analyzer;
     private IndexWriter indexWriter;
     
-    public Indexer(String indexPath, int kmerSize) throws Exception {
-        if(indexPath == null) {
-            throw new IllegalArgumentException("indexPath is null");
-        }
-        
-        if(kmerSize <= 0) {
-            throw new IllegalArgumentException("kmerSize must be larger than 0");
-        }
-        
-        initialize(new File(indexPath), kmerSize);
-    }
-    
-    public Indexer(File indexPath, int kmerSize) throws Exception {
-        if(indexPath == null) {
-            throw new IllegalArgumentException("indexPath is null");
-        }
-        
-        if(kmerSize <= 0) {
-            throw new IllegalArgumentException("kmerSize must be larger than 0");
-        }
-        
-        initialize(indexPath, kmerSize);
-    }
-    
     public Indexer(Configuration conf) throws Exception {
         if(conf == null) {
             throw new IllegalArgumentException("conf is null");

@@ -15,9 +15,10 @@
  */
 package biospectra;
 
-import biospectra.search.SearchResult;
-import biospectra.search.SequenceSearcher;
-import biospectra.index.IndexUtil;
+import biospectra.classify.ClassifierClient;
+import biospectra.classify.LocalClassifier;
+import biospectra.classify.server.ClassifierServer;
+import biospectra.utils.IndexUtil;
 import biospectra.index.Indexer;
 import biospectra.taxdb.TaxonDB;
 import biospectra.taxdb.Taxonomy;
@@ -40,38 +41,70 @@ public class BioSpectra {
 
     private static final Log LOG = LogFactory.getLog(BioSpectra.class);
     
+    private static void printHelp() {
+        System.err.println("Help:");
+        System.err.println("> mode(first parameter) must be one of followings:");
+        System.err.println("> \'i\' (OR \'index\') - construct index from references");
+        System.err.println("> \'lc\' (OR \'lclassify\') - classify metagenomic samples");
+        System.err.println("> \'rc\' (OR \'rclassify\') - classify metagenomic samples through server");
+        System.err.println("> \'svr\' (OR \'server\') - run classification server");
+    }
+    
     /**
      * @param args the command line arguments
      */
     public static void main(String[] args) throws Exception {
-        String op = args[0];
-        if(op.equalsIgnoreCase("i") || op.equalsIgnoreCase("index")) {
-            index(args);
-        } else if(op.equalsIgnoreCase("s") || op.equalsIgnoreCase("search")) {
-            search(args);
-        } else if(op.equalsIgnoreCase("bs") || op.equalsIgnoreCase("bsearch")) {
-            bulksearch(args);
-        } else if(op.equalsIgnoreCase("u") || op.equalsIgnoreCase("utils")) {
-            utils(args);
-        } else if(op.equalsIgnoreCase("sample")) {
-            sample(args);
+        String mode = args[0];
+        if(mode.equalsIgnoreCase("i") || mode.equalsIgnoreCase("index")) {
+            CommandArgumentsParser<CommandArgumentIndex> parser = new CommandArgumentsParser<CommandArgumentIndex>();
+            CommandArgumentIndex indexArg = new CommandArgumentIndex();
+            if(!parser.parse(args, indexArg)) {
+                return;
+            }
+            
+            index(indexArg);
+        } else if(mode.equalsIgnoreCase("lc") || mode.equalsIgnoreCase("lclassify")) {
+            CommandArgumentsParser<CommandArgumentLocalClassifier> parser = new CommandArgumentsParser<CommandArgumentLocalClassifier>();
+            CommandArgumentLocalClassifier classifierArg = new CommandArgumentLocalClassifier();
+            if(!parser.parse(args, classifierArg)) {
+                return;
+            }
+            
+            classifyLocal(classifierArg);
+        } else if(mode.equalsIgnoreCase("rc") || mode.equalsIgnoreCase("rclassify")) {
+            CommandArgumentsParser<CommandArgumentClassifierClient> parser = new CommandArgumentsParser<CommandArgumentClassifierClient>();
+            CommandArgumentClassifierClient clientArg = new CommandArgumentClassifierClient();
+            if(!parser.parse(args, clientArg)) {
+                return;
+            }
+            
+            classifyRemote(clientArg);
+        } else if(mode.equalsIgnoreCase("svr") || mode.equalsIgnoreCase("server")) {
+            CommandArgumentsParser<CommandArgumentServer> parser = new CommandArgumentsParser<CommandArgumentServer>();
+            CommandArgumentServer serverArg = new CommandArgumentServer();
+            if(!parser.parse(args, serverArg)) {
+                return;
+            }
+            
+            runServer(serverArg);
+        } else {
+            printHelp();
         }
     }
 
-    private static void index(String[] args) throws Exception {
-        String referenceDir = args[1];
-        String indexDir = args[2];
+    private static void index(CommandArgumentIndex arg) throws Exception {
+        Configuration conf = null;
         
-        Configuration conf = new Configuration();
-        conf.setIndexPath(indexDir);
-        
-        if(args.length >= 4) {
-            conf.setKmerSize(Integer.parseInt(args[3]));
+        if(arg.getJsonConfiguration() != null && !arg.getJsonConfiguration().isEmpty()) {
+            conf = Configuration.createInstance(new File(arg.getJsonConfiguration()));
+        } else {
+            conf = new Configuration();
+            conf.setIndexPath(arg.getIndexDir());
         }
         
         Indexer indexer = new Indexer(conf);
         
-        List<File> refereneFiles = FastaFileHelper.findFastaDocs(referenceDir);
+        List<File> refereneFiles = FastaFileHelper.findFastaDocs(arg.getReferenceDir());
         for(File fastaDoc : refereneFiles) {
             LOG.info("indexing " + fastaDoc.getAbsolutePath() + " started");
             Date start = new Date();
@@ -85,66 +118,70 @@ public class BioSpectra {
         indexer.close();
     }
     
-    private static void search(String[] args) throws Exception {
-        String indexDir = args[1];
-        String query = args[2];
+    private static void classifyLocal(CommandArgumentLocalClassifier arg) throws Exception {
+        Configuration conf = null;
         
-        Configuration conf = new Configuration();
-        conf.setIndexPath(indexDir);
-        
-        if(args.length >= 4) {
-            conf.setKmerSize(Integer.parseInt(args[3]));
+        if(arg.getJsonConfiguration() != null && !arg.getJsonConfiguration().isEmpty()) {
+            conf = Configuration.createInstance(new File(arg.getJsonConfiguration()));
+        } else {
+            conf = new Configuration();
+            conf.setIndexPath(arg.getIndexDir());
         }
         
-        SequenceSearcher searcher = new SequenceSearcher(conf);
+        LocalClassifier classifier = new LocalClassifier(conf);
         
-        Date start = new Date(); 
-        
-        List<SearchResult> result = searcher.search(query);
-        
-        Date end = new Date(); 
-        LOG.info("searching finished - " + (end.getTime() - start.getTime()) + " total milliseconds");
-        
-        boolean hasResult = false;
-        for(SearchResult r : result) {
-            System.out.println(r.toString());
-            hasResult = true;
-        }
-        
-        if(!hasResult) {
-            System.out.println("no document found");
-        }
-        
-        searcher.close();
-    }
-    
-    private static void bulksearch(String[] args) throws Exception {
-        String indexDir = args[1];
-        String inputDir = args[2];
-        String outputDir = args[3];
-        
-        Configuration conf = new Configuration();
-        conf.setIndexPath(indexDir);
-        
-        if(args.length >= 5) {
-            conf.setKmerSize(Integer.parseInt(args[4]));
-        }
-        
-        SequenceSearcher searcher = new SequenceSearcher(conf);
-        
-        File output = new File(outputDir);
+        File output = new File(arg.getOutputDir());
         if(!output.exists()) {
             output.mkdirs();
         }
         
-        List<File> fastaDocs = FastaFileHelper.findFastaDocs(inputDir);
+        List<File> fastaDocs = FastaFileHelper.findFastaDocs(arg.getInputDir());
         for(File fastaDoc : fastaDocs) {
-            File resultOutput = new File(outputDir + "/" + fastaDoc.getName() + ".result");
-            File sumResultOutput = new File(outputDir + "/" + fastaDoc.getName() + ".result.sum");
-            searcher.bulkSearch(fastaDoc, resultOutput, sumResultOutput);
+            File resultOutput = new File(arg.getOutputDir() + "/" + fastaDoc.getName() + ".result");
+            File sumResultOutput = new File(arg.getOutputDir() + "/" + fastaDoc.getName() + ".result.sum");
+            classifier.classify(fastaDoc, resultOutput, sumResultOutput);
         }
         
-        searcher.close();
+        classifier.close();
+    }
+    
+    private static void classifyRemote(CommandArgumentClassifierClient arg) throws Exception {
+        ClientConfiguration conf = ClientConfiguration.createInstance(new File(arg.getJsonConfiguration()));
+        
+        ClassifierClient classifier = new ClassifierClient(conf);
+        classifier.start();
+        
+        File output = new File(arg.getOutputDir());
+        if(!output.exists()) {
+            output.mkdirs();
+        }
+        
+        List<File> fastaDocs = FastaFileHelper.findFastaDocs(arg.getInputDir());
+        for(File fastaDoc : fastaDocs) {
+            File resultOutput = new File(arg.getOutputDir() + "/" + fastaDoc.getName() + ".result");
+            File sumResultOutput = new File(arg.getOutputDir() + "/" + fastaDoc.getName() + ".result.sum");
+            classifier.classify(fastaDoc, resultOutput, sumResultOutput);
+        }
+        
+        classifier.close();
+    }
+    
+    private static void runServer(CommandArgumentServer arg) throws Exception {
+        ServerConfiguration conf = ServerConfiguration.createInstance(new File(arg.getJsonConfiguration()));
+        
+        ClassifierServer server = new ClassifierServer(conf);
+        server.start();
+        
+        while(!Thread.currentThread().isInterrupted()) {
+            try {
+                // service loop
+                Thread.sleep(1000);
+            } catch(InterruptedException ex) {
+                Thread.currentThread().interrupt();
+            }
+        }
+        
+        server.close();
     }
     
     private static void sample(String[] args) throws Exception {

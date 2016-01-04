@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package biospectra.search;
+package biospectra.classify.beans;
 
 import biospectra.index.IndexConstants;
 import biospectra.utils.JsonSerializer;
@@ -27,18 +27,18 @@ import org.codehaus.jackson.annotate.JsonProperty;
  *
  * @author iychoi
  */
-public class SearchResult {
+public class SearchResultEntry {
     private int docId;
     private int rank;
     private String filename;
     private String header;
     private double score;
     
-    public SearchResult() {
+    public SearchResultEntry() {
         
     }
     
-    public SearchResult(int docId, Document d, int rank, double score) {
+    public SearchResultEntry(int docId, Document d, int rank, double score) {
         this.docId = docId;
         this.filename = d.get(IndexConstants.FIELD_FILENAME);
         this.header = d.get(IndexConstants.FIELD_HEADER);
