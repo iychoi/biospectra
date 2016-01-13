@@ -72,4 +72,23 @@ public class CommandArgumentLocalClassifier extends CommandArgumentsBase {
         
         return true;
     }
+    
+    @Override
+    public String getValidityErrorMessage() {
+        if(this.inputDir == null || this.inputDir.isEmpty()) {
+            return "Query input path is not given";
+        }
+        
+        if(this.outputDir == null || this.outputDir.isEmpty()) {
+            return "Output path is not given";
+        }
+        
+        if(this.jsonConfiguration == null || this.jsonConfiguration.isEmpty()) {
+            if(this.indexDir == null || this.indexDir.isEmpty()) {
+                return "Index path is not given";
+            }
+        }
+        
+        return null;
+    }
 }

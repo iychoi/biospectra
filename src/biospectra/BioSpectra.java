@@ -73,6 +73,7 @@ public class BioSpectra {
             
             index(indexArg);
         } else if(programMode.equalsIgnoreCase("lc") || programMode.equalsIgnoreCase("lclassify")) {
+            System.out.println("Classifying (LOCAL mode)...");
             CommandArgumentsParser<CommandArgumentLocalClassifier> parser = new CommandArgumentsParser<CommandArgumentLocalClassifier>();
             CommandArgumentLocalClassifier classifierArg = new CommandArgumentLocalClassifier();
             if(!parser.parse(programArgs, classifierArg)) {
@@ -89,6 +90,7 @@ public class BioSpectra {
             
             classifyRemote(clientArg);
         } else if(programMode.equalsIgnoreCase("svr") || programMode.equalsIgnoreCase("server")) {
+            System.out.println("Running a classification server...");
             CommandArgumentsParser<CommandArgumentServer> parser = new CommandArgumentsParser<CommandArgumentServer>();
             CommandArgumentServer serverArg = new CommandArgumentServer();
             if(!parser.parse(programArgs, serverArg)) {

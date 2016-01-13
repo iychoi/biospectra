@@ -28,18 +28,18 @@ import org.apache.lucene.analysis.tokenattributes.CharTermAttribute;
  *
  * @author iychoi
  */
-public final class LowerSequenceFormFilter extends TokenFilter {
+public final class SequenceCompressFilter extends TokenFilter {
 
-    private static final Log LOG = LogFactory.getLog(LowerSequenceFormFilter.class);
+    private static final Log LOG = LogFactory.getLog(SequenceCompressFilter.class);
     
     private final CharTermAttribute termAtt = addAttribute(CharTermAttribute.class);
     private boolean compress = true;
     
-    public LowerSequenceFormFilter(TokenStream in) {
+    public SequenceCompressFilter(TokenStream in) {
         super(in);
     }
     
-    public LowerSequenceFormFilter(TokenStream in, boolean compress) {
+    public SequenceCompressFilter(TokenStream in, boolean compress) {
         super(in);
         
         this.compress = compress;
@@ -50,30 +50,6 @@ public final class LowerSequenceFormFilter extends TokenFilter {
         if (this.input.incrementToken()) {
             char[] buffer = this.termAtt.buffer();
             final int length = this.termAtt.length();
-            
-            char[] reverse_complement = SequenceHelper.getReverseComplement(buffer, length);
-            boolean useReverse = false;
-            for(int i=0;i<length;i++) {
-                if(buffer[i] > reverse_complement[i]) {
-                    useReverse = true;
-                    break;
-                } else if(buffer[i] < reverse_complement[i]) {
-                    useReverse = false;
-                    break;
-                }
-                
-                // otherwise, loop
-            }
-            
-            //LOG.info("ori: " + String.valueOf(buffer));
-            
-            if(useReverse) {
-                for(int i=0;i<length;i++) {
-                    buffer[i] = reverse_complement[i];
-                }
-            }
-            
-            //LOG.info("new: " + String.valueOf(buffer));
             
             if(this.compress) {
                 byte[] compressed = SequenceHelper.compress(buffer, length);

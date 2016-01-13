@@ -41,7 +41,7 @@ public class KmerIndexAnalyzer extends Analyzer {
             Tokenizer tokenizer = new KmerSequenceTokenizer(this.k, 0);
             // use lower sequence form (forward / reverse complement)
             // use compression make 1/3 of size
-            LowerSequenceFormFilter filter = new LowerSequenceFormFilter(tokenizer, true);
+            SequenceCompressFilter filter = new SequenceCompressFilter(tokenizer, true);
             return new TokenStreamComponents(tokenizer, filter);
         } catch (IOException ex) {
             LOG.error("Exception occurred during tokenization", ex);

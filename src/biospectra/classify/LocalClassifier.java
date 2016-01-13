@@ -43,12 +43,12 @@ public class LocalClassifier implements Closeable {
     
     private static final Log LOG = LogFactory.getLog(LocalClassifier.class);
     
-    private Classifier searcher;
+    private Classifier classifier;
     private Configuration conf;
     
     public LocalClassifier(Configuration conf) throws Exception {
         this.conf = conf;
-        this.searcher = new Classifier(conf);
+        this.classifier = new Classifier(conf);
     }
     
     public ClassificationResult classify(String header, String sequence) throws Exception {
@@ -56,7 +56,7 @@ public class LocalClassifier implements Closeable {
             throw new IllegalArgumentException("sequence is null or empty");
         }
         
-        return this.searcher.classify(header, sequence);
+        return this.classifier.classify(header, sequence);
     }
     
     public void classify(File inputFasta, File classifyOutput, File summaryOutput) throws Exception {
@@ -103,7 +103,7 @@ public class LocalClassifier implements Closeable {
                 @Override
                 public void run() {
                     try {
-                        ClassificationResult result = searcher.classify(header, sequence);
+                        ClassificationResult result = classifier.classify(header, sequence);
                         
                         JsonSerializer serializer = new JsonSerializer();
                         String json = serializer.toJson(result);
@@ -136,6 +136,6 @@ public class LocalClassifier implements Closeable {
 
     @Override
     public void close() throws IOException {
-        this.searcher.close();
+        this.classifier.close();
     }
 }

@@ -70,7 +70,7 @@ public class CommandArgumentIndex extends CommandArgumentsBase {
         
         if(this.jsonConfiguration == null || this.jsonConfiguration.isEmpty()) {
             if(this.indexDir == null || this.indexDir.isEmpty()) {
-                return "Index directory to be created is not given";
+                return "Index path to be created is not given";
             }
         }
         return null;

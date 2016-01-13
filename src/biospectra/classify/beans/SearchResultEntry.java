@@ -32,6 +32,7 @@ public class SearchResultEntry {
     private int rank;
     private String filename;
     private String header;
+    private String sequenceDirection;
     private double score;
     
     public SearchResultEntry() {
@@ -42,6 +43,7 @@ public class SearchResultEntry {
         this.docId = docId;
         this.filename = d.get(IndexConstants.FIELD_FILENAME);
         this.header = d.get(IndexConstants.FIELD_HEADER);
+        this.sequenceDirection = d.get(IndexConstants.FIELD_SEQUENCE_DIRECTION);
         this.rank = rank;
         this.score = score;
     }
@@ -85,6 +87,16 @@ public class SearchResultEntry {
     public void setHeader(String header) {
         this.header = header;
     }
+    
+    @JsonProperty("sequence_direction")
+    public String getSequenceDirection() {
+        return sequenceDirection;
+    }
+
+    @JsonProperty("sequence_direction")
+    public void setSequenceDirection(String sequenceDirection) {
+        this.sequenceDirection = sequenceDirection;
+    }
 
     @JsonProperty("score")
     public double getScore() {
@@ -99,7 +111,7 @@ public class SearchResultEntry {
     @Override
     @JsonIgnore
     public String toString() {
-        return this.rank + "\t" + this.score + "\t" + this.docId + "\t" + this.filename + "\n>" + this.header;
+        return this.rank + "\t" + this.score + "\t" + this.docId + "\t" + this.filename + "\t" + this.sequenceDirection + "\n>" + this.header;
     }
     
     @JsonIgnore
