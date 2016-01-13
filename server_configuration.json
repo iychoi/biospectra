@@ -1,0 +1,12 @@
+{
+    "index_path":"./index",
+    "kmer_size":10,
+    "kmer_skips":10,
+    "query_term_min_should_match":0.5,
+    "worker_threads":4,
+    "scoring_algorithm":"tfidf",
+    "rabbitmq_hostname":"localhost",
+    "rabbitmq_port":5672,
+    "rabbitmq_user_id":"biospectra",
+    "rabbitmq_user_pwd":"biospectra"
+}

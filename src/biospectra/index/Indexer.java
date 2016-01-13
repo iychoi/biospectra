@@ -32,6 +32,7 @@ import org.apache.lucene.document.StringField;
 import org.apache.lucene.document.TextField;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
+import org.apache.lucene.search.similarities.Similarity;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.NIOFSDirectory;
 import org.yeastrc.fasta.FASTAEntry;
@@ -62,10 +63,10 @@ public class Indexer implements Closeable {
             throw new IllegalArgumentException("kmerSize must be larger than 0");
         }
         
-        initialize(new File(conf.getIndexPath()), conf.getKmerSize());
+        initialize(new File(conf.getIndexPath()), conf.getKmerSize(), conf.getScoringAlgorithmObject());
     }
     
-    private void initialize(File indexPath, int kmerSize) throws Exception {
+    private void initialize(File indexPath, int kmerSize, Similarity similarity) throws Exception {
         if(!indexPath.exists()) {
             indexPath.mkdirs();
         }
@@ -78,6 +79,10 @@ public class Indexer implements Closeable {
         this.analyzer = new KmerIndexAnalyzer(kmerSize);
         Directory dir = new NIOFSDirectory(this.indexPath.toPath()); 
         IndexWriterConfig config = new IndexWriterConfig(this.analyzer); 
+        if(similarity != null) {
+            config.setSimilarity(similarity);
+        }
+        
         config.setOpenMode(IndexWriterConfig.OpenMode.CREATE_OR_APPEND);
         this.indexWriter = new IndexWriter(dir, config);
     }

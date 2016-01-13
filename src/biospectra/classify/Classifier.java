@@ -41,6 +41,7 @@ import org.apache.lucene.search.PhraseQuery;
 import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.search.TopScoreDocCollector;
+import org.apache.lucene.search.similarities.Similarity;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.MMapDirectory;
 import org.apache.lucene.util.BytesRef;
@@ -78,10 +79,10 @@ public class Classifier implements Closeable {
             throw new IllegalArgumentException("kmerSkips must be larger than 0");
         }
         
-        initialize(new File(conf.getIndexPath()), conf.getKmerSize(), conf.getKmerSkips(), conf.getQueryMinShouldMatch());
+        initialize(new File(conf.getIndexPath()), conf.getKmerSize(), conf.getKmerSkips(), conf.getQueryMinShouldMatch(), conf.getScoringAlgorithmObject());
     }
     
-    private void initialize(File indexPath, int kmerSize, int kmerSkips, double minShouldMatch) throws Exception {
+    private void initialize(File indexPath, int kmerSize, int kmerSkips, double minShouldMatch, Similarity similarity) throws Exception {
         if(!indexPath.exists() || !indexPath.isDirectory()) {
             throw new IllegalArgumentException("indexPath is not a directory or does not exist");
         }
@@ -93,6 +94,9 @@ public class Classifier implements Closeable {
         Directory dir = new MMapDirectory(this.indexPath.toPath()); 
         this.indexReader = DirectoryReader.open(dir);
         this.indexSearcher = new IndexSearcher(this.indexReader);
+        if(similarity != null) {
+            this.indexSearcher.setSimilarity(similarity);
+        }
         this.minShouldMatch = minShouldMatch;
         
         BooleanQuery.setMaxClauseCount(10000);

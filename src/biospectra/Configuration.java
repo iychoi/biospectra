@@ -20,6 +20,9 @@ import java.io.File;
 import java.io.IOException;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.apache.lucene.search.similarities.BM25Similarity;
+import org.apache.lucene.search.similarities.DefaultSimilarity;
+import org.apache.lucene.search.similarities.Similarity;
 import org.codehaus.jackson.annotate.JsonIgnore;
 import org.codehaus.jackson.annotate.JsonProperty;
 
@@ -34,12 +37,14 @@ public class Configuration {
     public static final int DEFAULT_KMERSKIPS = 5;
     public static final double DEFAULT_QUERY_TERMS_MIN_SHOULD_MATCH = 0.5;
     public static final int DEFAULT_WORKER_THREADS = 4;
+    public static final String DEFAULT_SCORING_ALGORITHM = "default";
     
     private String indexPath;
     private int kmerSize = DEFAULT_KMERSIZE;
     private int kmerSkips = DEFAULT_KMERSKIPS;
     private double queryMinShouldMatch = DEFAULT_QUERY_TERMS_MIN_SHOULD_MATCH;
     private int workerThreads = DEFAULT_WORKER_THREADS;
+    private String scoringAlgorithm = DEFAULT_SCORING_ALGORITHM;
 
     public static Configuration createInstance(File file) throws IOException {
         if(file == null) {
@@ -111,6 +116,29 @@ public class Configuration {
     @JsonProperty("worker_threads")
     public void setWorkerThreads(int workerThreads) {
         this.workerThreads = workerThreads;
+    }
+    
+    @JsonProperty("scoring_algorithm")
+    public String getScoringAlgorithm() {
+        return scoringAlgorithm;
+    }
+    
+    @JsonProperty("scoring_algorithm")
+    public void setScoringAlgorithm(String scoringAlgorithm) {
+        this.scoringAlgorithm = scoringAlgorithm;
+    }
+    
+    @JsonIgnore
+    public Similarity getScoringAlgorithmObject() {
+        if(this.scoringAlgorithm == null || this.scoringAlgorithm.isEmpty() || this.scoringAlgorithm.equals(DEFAULT_SCORING_ALGORITHM) || this.scoringAlgorithm.equalsIgnoreCase("tfidf") || this.scoringAlgorithm.equalsIgnoreCase("vectorspace")) {
+            // vector-space model
+            return new DefaultSimilarity();
+        } else if(this.scoringAlgorithm.equalsIgnoreCase("bm25")) {
+            // bm25 probability model
+            return new BM25Similarity();
+        }
+        
+        return new DefaultSimilarity();
     }
     
     @JsonIgnore

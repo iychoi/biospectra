@@ -1,7 +1,8 @@
 {
     "index_path":"./index",
-    "kmer_size":8,
-    "kmer_skips":8,
+    "kmer_size":10,
+    "kmer_skips":10,
     "query_term_min_should_match":0.5,
-    "worker_threads":4
+    "worker_threads":4,
+    "scoring_algorithm":"tfidf"
 }
