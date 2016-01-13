@@ -61,4 +61,18 @@ public class CommandArgumentIndex extends CommandArgumentsBase {
         
         return true;
     }
+    
+    @Override
+    public String getValidityErrorMessage() {
+        if(this.referenceDir == null || this.referenceDir.isEmpty()) {
+            return "Reference dataset path is not given";
+        }
+        
+        if(this.jsonConfiguration == null || this.jsonConfiguration.isEmpty()) {
+            if(this.indexDir == null || this.indexDir.isEmpty()) {
+                return "Index directory to be created is not given";
+            }
+        }
+        return null;
+    }
 }

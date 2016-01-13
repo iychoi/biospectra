@@ -33,16 +33,29 @@ public class CommandArgumentsParser<T extends CommandArgumentsBase> {
             parseException = e;
         }
         
-        if(cmdargs.isHelp() || !cmdargs.checkValidity()) {
+        if(cmdargs.isHelp()) {
             parser.printUsage(System.err);
             return false;
         }
-        
+
         if(parseException != null) {
             System.err.println(parseException.getMessage());
             parser.printUsage(System.err);
             return false;
         }
+        
+        if(!cmdargs.checkValidity()) {
+            String errorMsg = cmdargs.getValidityErrorMessage();
+            if(errorMsg != null) {
+                System.err.println(errorMsg);
+            }
+            
+            System.err.println("\n");
+            
+            parser.printUsage(System.err);
+            return false;
+        }
+
         return true;
     }
 }

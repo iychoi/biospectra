@@ -42,4 +42,8 @@ public class CommandArgumentsBase {
     public boolean checkValidity() {
         return true;
     }
+    
+    public String getValidityErrorMessage() {
+        return null;
+    }
 }

@@ -1,0 +1,7 @@
+{
+    "index_path":"./index",
+    "kmer_size":8,
+    "kmer_skips":8,
+    "query_term_min_should_match":0.5,
+    "worker_threads":4
+}

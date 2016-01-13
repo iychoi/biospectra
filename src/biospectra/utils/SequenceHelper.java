@@ -23,7 +23,7 @@ import java.math.BigInteger;
  * @author iychoi
  */
 public class SequenceHelper {
-    private static char[] ComplementCharLUT = {'T', ' ', 'G', ' ', ' ', ' ', 'C', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
+    private static char[] ComplementCharLUT = {'T', ' ', 'G', ' ', ' ', ' ', 'C', ' ', ' ', ' ', ' ', ' ', ' ', 'N', ' ', ' ',
     ' ', ' ', ' ', 'A', ' ', ' ', ' ', ' ', ' ', ' '};
     
     private static char[] convBitToCharLUT = {'A', 'C', 'G', 'T'};

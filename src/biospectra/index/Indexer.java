@@ -18,6 +18,7 @@ package biospectra.index;
 import biospectra.Configuration;
 import biospectra.lucene.KmerIndexAnalyzer;
 import biospectra.utils.FastaFileReader;
+import biospectra.utils.SequenceHelper;
 import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
@@ -69,6 +70,10 @@ public class Indexer implements Closeable {
             indexPath.mkdirs();
         }
         
+        if(indexPath.exists()) {
+            cleanUpDirectory(indexPath);
+        }
+        
         this.indexPath = indexPath;
         this.analyzer = new KmerIndexAnalyzer(kmerSize);
         Directory dir = new NIOFSDirectory(this.indexPath.toPath()); 
@@ -98,10 +103,12 @@ public class Indexer implements Closeable {
         Document doc = new Document();
         Field filenameField = new StringField(IndexConstants.FIELD_FILENAME, fastaDoc.getName(), Field.Store.YES);
         Field headerField = new StringField(IndexConstants.FIELD_HEADER, "", Field.Store.YES);
+        Field sequenceDirectionField = new StringField(IndexConstants.FIELD_SEQUENCE_DIRECTION, "", Field.Store.YES);
         Field sequenceField = new TextField(IndexConstants.FIELD_SEQUENCE, "", Field.Store.NO);
         
         doc.add(filenameField);
         doc.add(headerField);
+        doc.add(sequenceDirectionField);
         doc.add(sequenceField);
         
         while((read = reader.readNext()) != null) {
@@ -111,10 +118,16 @@ public class Indexer implements Closeable {
             }
             
             String sequence = read.getSequence();
-            
             headerField.setStringValue(headerLine);
-            sequenceField.setStringValue(sequence);
             
+            // forward-strand
+            sequenceDirectionField.setStringValue("forward");
+            sequenceField.setStringValue(sequence);
+            this.indexWriter.addDocument(doc);
+            
+            // reverse-strand
+            sequenceDirectionField.setStringValue("reverse");
+            sequenceField.setStringValue(SequenceHelper.getReverseComplement(sequence));
             this.indexWriter.addDocument(doc);
         }
         
@@ -125,5 +138,18 @@ public class Indexer implements Closeable {
     public void close() throws IOException {
         this.analyzer.close();
         this.indexWriter.close();
+    }
+
+    private void cleanUpDirectory(File indexPath) {
+        File[] listFiles = indexPath.listFiles();
+        for(File f : listFiles) {
+            if(f.isFile()) {
+                f.delete();
+            } else {
+                //remove recursively
+                cleanUpDirectory(f);
+                f.delete();
+            }
+        }
     }
 }

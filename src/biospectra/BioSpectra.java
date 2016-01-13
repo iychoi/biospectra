@@ -54,35 +54,44 @@ public class BioSpectra {
      * @param args the command line arguments
      */
     public static void main(String[] args) throws Exception {
-        String mode = args[0];
-        if(mode.equalsIgnoreCase("i") || mode.equalsIgnoreCase("index")) {
+        if(args.length < 1) {
+            printHelp();
+            return;
+        }
+        
+        String programMode = args[0];
+        String[] programArgs = new String[args.length - 1];
+        System.arraycopy(args, 1, programArgs, 0, args.length - 1);
+        
+        if(programMode.equalsIgnoreCase("i") || programMode.equalsIgnoreCase("index")) {
+            System.out.println("Indexing...");
             CommandArgumentsParser<CommandArgumentIndex> parser = new CommandArgumentsParser<CommandArgumentIndex>();
             CommandArgumentIndex indexArg = new CommandArgumentIndex();
-            if(!parser.parse(args, indexArg)) {
+            if(!parser.parse(programArgs, indexArg)) {
                 return;
             }
             
             index(indexArg);
-        } else if(mode.equalsIgnoreCase("lc") || mode.equalsIgnoreCase("lclassify")) {
+        } else if(programMode.equalsIgnoreCase("lc") || programMode.equalsIgnoreCase("lclassify")) {
             CommandArgumentsParser<CommandArgumentLocalClassifier> parser = new CommandArgumentsParser<CommandArgumentLocalClassifier>();
             CommandArgumentLocalClassifier classifierArg = new CommandArgumentLocalClassifier();
-            if(!parser.parse(args, classifierArg)) {
+            if(!parser.parse(programArgs, classifierArg)) {
                 return;
             }
             
             classifyLocal(classifierArg);
-        } else if(mode.equalsIgnoreCase("rc") || mode.equalsIgnoreCase("rclassify")) {
+        } else if(programMode.equalsIgnoreCase("rc") || programMode.equalsIgnoreCase("rclassify")) {
             CommandArgumentsParser<CommandArgumentClassifierClient> parser = new CommandArgumentsParser<CommandArgumentClassifierClient>();
             CommandArgumentClassifierClient clientArg = new CommandArgumentClassifierClient();
-            if(!parser.parse(args, clientArg)) {
+            if(!parser.parse(programArgs, clientArg)) {
                 return;
             }
             
             classifyRemote(clientArg);
-        } else if(mode.equalsIgnoreCase("svr") || mode.equalsIgnoreCase("server")) {
+        } else if(programMode.equalsIgnoreCase("svr") || programMode.equalsIgnoreCase("server")) {
             CommandArgumentsParser<CommandArgumentServer> parser = new CommandArgumentsParser<CommandArgumentServer>();
             CommandArgumentServer serverArg = new CommandArgumentServer();
-            if(!parser.parse(args, serverArg)) {
+            if(!parser.parse(programArgs, serverArg)) {
                 return;
             }
             
