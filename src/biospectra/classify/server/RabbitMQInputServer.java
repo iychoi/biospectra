@@ -62,18 +62,20 @@ public class RabbitMQInputServer implements Closeable {
     }
     
     public void connect() throws IOException, TimeoutException {
+        LOG.info("Connecting to - " + this.conf.getRabbitMQHostname() + ":" + this.conf.getRabbitMQPort());
+        
         ConnectionFactory factory = new ConnectionFactory();
-        factory.setHost(this.conf.getHostname());
-        factory.setPort(this.conf.getPort());
-        factory.setUsername(this.conf.getUserId());
-        factory.setPassword(this.conf.getUserPwd());
+        factory.setHost(this.conf.getRabbitMQHostname());
+        factory.setPort(this.conf.getRabbitMQPort());
+        factory.setUsername(this.conf.getRabbitMQUserId());
+        factory.setPassword(this.conf.getRabbitMQUserPwd());
         
         factory.setAutomaticRecoveryEnabled(true);
         
         this.connection = factory.newConnection();
         this.channel = this.connection.createChannel();
         
-        LOG.info("reader connected - " + this.conf.getHostname() + ":" + this.conf.getPort());
+        LOG.info("connected.");
         
         this.channel.basicQos(1);
         this.channel.queueDeclare("request", false, false, true, null);

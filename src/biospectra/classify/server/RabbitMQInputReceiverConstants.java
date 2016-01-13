@@ -20,6 +20,4 @@ package biospectra.classify.server;
  * @author iychoi
  */
 public class RabbitMQInputReceiverConstants {
-    public static final String EXCHANGE_NAME = "";
-    public static final String QUEUE_NAME = "biospectra";
 }

@@ -1,0 +1,6 @@
+{
+    "rabbitmq_hostnames":["localhost"],
+    "rabbitmq_port":5672,
+    "rabbitmq_user_id":"biospectra",
+    "rabbitmq_user_pwd":"biospectra"
+}

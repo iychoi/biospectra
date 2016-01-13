@@ -31,12 +31,10 @@ import org.codehaus.jackson.annotate.JsonProperty;
 public class ServerConfiguration extends Configuration {
     private static final Log LOG = LogFactory.getLog(ServerConfiguration.class);
     
-    private String hostname;
-    private int port;
-    private String userId;
-    private String userPwd;
-    private String exchange = RabbitMQInputReceiverConstants.EXCHANGE_NAME;
-    private String queue = RabbitMQInputReceiverConstants.QUEUE_NAME;
+    private String rabbitmq_hostname;
+    private int rabbitmq_port;
+    private String rabbitmq_userId;
+    private String rabbitmq_userPwd;
     
     public static ServerConfiguration createInstance(File file) throws IOException {
         if(file == null) {
@@ -60,44 +58,44 @@ public class ServerConfiguration extends Configuration {
         
     }
     
-    @JsonProperty("hostname")
-    public void setHostname(String hostname) {
-        this.hostname = hostname;
+    @JsonProperty("rabbitmq_hostname")
+    public void setRabbitMQHostname(String hostname) {
+        this.rabbitmq_hostname = hostname;
     }
 
-    @JsonProperty("hostname")
-    public String getHostname() {
-        return this.hostname;
+    @JsonProperty("rabbitmq_hostname")
+    public String getRabbitMQHostname() {
+        return this.rabbitmq_hostname;
     }
 
-    @JsonProperty("port")
-    public void setPort(int port) {
-        this.port = port;
+    @JsonProperty("rabbitmq_port")
+    public void setRabbitMQPort(int port) {
+        this.rabbitmq_port = port;
     }
     
-    @JsonProperty("port")
-    public int getPort() {
-        return this.port;
+    @JsonProperty("rabbitmq_port")
+    public int getRabbitMQPort() {
+        return this.rabbitmq_port;
     }
 
-    @JsonProperty("user_id")
-    public void setUserId(String userId) {
-        this.userId = userId;
+    @JsonProperty("rabbitmq_user_id")
+    public void setRabbitMQUserId(String userId) {
+        this.rabbitmq_userId = userId;
     }
 
-    @JsonProperty("user_id")
-    public String getUserId() {
-        return this.userId;
+    @JsonProperty("rabbitmq_user_id")
+    public String getRabbitMQUserId() {
+        return this.rabbitmq_userId;
     }
 
-    @JsonProperty("user_pwd")
-    public void setUserPwd(String userPwd) {
-        this.userPwd = userPwd;
+    @JsonProperty("rabbitmq_user_pwd")
+    public void setRabbitMQUserPwd(String userPwd) {
+        this.rabbitmq_userPwd = userPwd;
     }
     
-    @JsonProperty("user_pwd")
-    public String getUserPwd() {
-        return this.userPwd;
+    @JsonProperty("rabbitmq_user_pwd")
+    public String getRabbitMQUserPwd() {
+        return this.rabbitmq_userPwd;
     }
 
     @JsonIgnore

@@ -55,7 +55,7 @@ public class RabbitMQInputClient implements Closeable {
             throw new IllegalArgumentException("conf is null");
         }
         
-        if(hostId < 0 || hostId >= conf.getHostnames().size()) {
+        if(hostId < 0 || hostId >= conf.getRabbitMQHostnames().size()) {
             throw new IllegalArgumentException("hostId is invalid");
         }
         
@@ -70,18 +70,18 @@ public class RabbitMQInputClient implements Closeable {
     
     public void connect() throws IOException, TimeoutException {
         ConnectionFactory factory = new ConnectionFactory();
-        String hostname = this.conf.getHostnames().get(this.hostId);
+        String hostname = this.conf.getRabbitMQHostnames().get(this.hostId);
         factory.setHost(hostname);
-        factory.setPort(this.conf.getPort());
-        factory.setUsername(this.conf.getUserId());
-        factory.setPassword(this.conf.getUserPwd());
+        factory.setPort(this.conf.getRabbitMQPort());
+        factory.setUsername(this.conf.getRabbitMQUserId());
+        factory.setPassword(this.conf.getRabbitMQUserPwd());
         
         factory.setAutomaticRecoveryEnabled(true);
         
         this.connection = factory.newConnection();
         this.channel = this.connection.createChannel();
         
-        LOG.info("reader connected - " + hostname + ":" + this.conf.getPort());
+        LOG.info("reader connected - " + hostname + ":" + this.conf.getRabbitMQPort());
         
         this.channel.basicQos(1);
         this.queueName = this.channel.queueDeclare().getQueue();

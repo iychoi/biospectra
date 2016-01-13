@@ -82,6 +82,7 @@ public class BioSpectra {
             
             classifyLocal(classifierArg);
         } else if(programMode.equalsIgnoreCase("rc") || programMode.equalsIgnoreCase("rclassify")) {
+            System.out.println("Classifying (REMOTE mode)...");
             CommandArgumentsParser<CommandArgumentClassifierClient> parser = new CommandArgumentsParser<CommandArgumentClassifierClient>();
             CommandArgumentClassifierClient clientArg = new CommandArgumentClassifierClient();
             if(!parser.parse(programArgs, clientArg)) {

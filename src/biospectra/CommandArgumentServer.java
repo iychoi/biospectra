@@ -26,9 +26,6 @@ import org.kohsuke.args4j.Option;
 public class CommandArgumentServer extends CommandArgumentsBase {
     private static final Log LOG = LogFactory.getLog(CommandArgumentServer.class);
     
-    @Option(name = "-h", aliases = "--help", usage = "print help message") 
-    protected boolean help = false;
-
     @Option(name = "-j", aliases = "--json", usage = "pass json configuration file")
     protected String jsonConfiguration;
     
@@ -43,5 +40,14 @@ public class CommandArgumentServer extends CommandArgumentsBase {
         }
         
         return true;
+    }
+    
+    @Override
+    public String getValidityErrorMessage() {
+        if(this.jsonConfiguration == null || this.jsonConfiguration.isEmpty()) {
+            return "configuration file is not given";
+        }
+        
+        return null;
     }
 }

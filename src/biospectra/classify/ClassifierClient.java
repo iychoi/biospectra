@@ -135,7 +135,7 @@ public class ClassifierClient implements Closeable {
             }
         };
         
-        for(int i=0;i<conf.getHostnames().size();i++) {
+        for(int i=0;i<conf.getRabbitMQHostnames().size();i++) {
             RabbitMQInputClient client = new RabbitMQInputClient(conf, i, this.handler);
             this.clients.add(client);
         }
@@ -223,19 +223,21 @@ public class ClassifierClient implements Closeable {
             turn = turn % this.clients.size();
         }
         
-        while(this.waitingQueue.size() > 0) {
-            while(this.waitingQueue.peek() != null && this.waitingQueue.peek().getClassified()) {
-                // check finalized
-                ClassificationResponse ecres = this.waitingQueue.poll();
-                ClassificationResult bresult = new ClassificationResult(ecres.getHeader(), ecres.getSequence(), ecres.getResult(), ecres.getType());
-                String json = serializer.toJson(bresult);
+        synchronized (this.waitingQueue) {
+            while(this.waitingQueue.size() > 0) {
+                while(this.waitingQueue.peek() != null && this.waitingQueue.peek().getClassified()) {
+                    // check finalized
+                    ClassificationResponse ecres = this.waitingQueue.poll();
+                    ClassificationResult bresult = new ClassificationResult(ecres.getHeader(), ecres.getSequence(), ecres.getResult(), ecres.getType());
+                    String json = serializer.toJson(bresult);
 
-                summary.report(bresult);
-                bw.write(json + "\n");
-            }
-            
-            if(this.waitingQueue.size() > 0) {
-                this.waitingQueue.wait();
+                    summary.report(bresult);
+                    bw.write(json + "\n");
+                }
+
+                if(this.waitingQueue.size() > 0) {
+                    this.waitingQueue.wait();
+                }
             }
         }
         
@@ -260,7 +262,9 @@ public class ClassifierClient implements Closeable {
                 cres.setClassified(true);
                 
                 this.index.remove(res.getReqId());
-                this.waitingQueue.notifyAll();
+                synchronized (this.waitingQueue) {
+                    this.waitingQueue.notifyAll();
+                }
             }
         }
     }
