@@ -1,5 +1,0 @@
-echo "************************************"
-echo "Downloading NCBI Bacteria References"
-echo "************************************"
-
-wget ftp://ftp.ncbi.nih.gov/genomes/Bacteria/all.fna.tar.gz

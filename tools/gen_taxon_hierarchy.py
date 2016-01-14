@@ -4,6 +4,7 @@ import os
 import os.path
 import sys
 import sqlite3
+import json
 
 conn = None
 
@@ -26,7 +27,7 @@ def disconn():
 
 
 def readHierarchyByTaxid(taxid):
-    query = "select taxid, name, parent, rank from tree where taxid = " + taxid
+    query = "select taxid, name, parent, rank from tree where taxid = " + str(taxid)
 
     cursor = conn.execute(query)
     ret = {}
@@ -40,7 +41,7 @@ def readHierarchyByTaxid(taxid):
     return ret
 
 def readHierarchyByGenbankid(gid):
-    query = "select t.taxid as taxid, t.name as name, t.parent as parent, t.rank as rank from gi_taxid g, tree t where g.taxid = t.taxid and g.gi = " + gid
+    query = "select t.taxid as taxid, t.name as name, t.parent as parent, t.rank as rank from gi_taxid g, tree t where g.taxid = t.taxid and g.gi = " + str(gid)
 
     cursor = conn.execute(query)
     ret = {}
@@ -71,16 +72,34 @@ def _genHierarchyFile(path):
     print "generating a taxonomy hierarchy file - ", path
     pname = os.path.basename(os.path.dirname(path))
     splits = pname.split("_")
-    print len(splits)
     for x in range(len(splits), 0, -1):
         speciesName = ""
         for y in range(0, x):
-            speciesName += splits[y]
-            ret = readHierarchyByName(speciesName)
-            if len(ret) > 0:
-                print "species - ", speciesName
-            else:
-                speciesName += " "
+            speciesName += splits[y] + " "
+       
+        speciesName = speciesName.strip()
+        ret = readHierarchyByName(speciesName)
+        if len(ret) > 0:
+            retarr=[]
+            retarr.append(ret)
+            parent_taxid = ret["parent"]
+
+            while int(parent_taxid) > 0:
+                pret = readHierarchyByTaxid(parent_taxid)
+                if len(pret) > 0:
+                    if pret["taxid"] != pret["parent"]:
+                        retarr.append(pret)
+                        parent_taxid = pret["parent"]
+                    else:
+                        retarr.append(pret)
+                        break;
+                else:
+                    break;
+
+            f = open(path + ".taxd", "w")
+            f.write(json.dumps(retarr))
+            f.close()
+            break;
 
 def genHierarchyFile(path):
     if os.path.isdir(path):
