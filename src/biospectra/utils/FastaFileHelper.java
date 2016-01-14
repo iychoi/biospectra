@@ -59,6 +59,14 @@ public class FastaFileHelper {
         return Collections.unmodifiableList(docs);
     }
     
+    public static String findTaxonHierarchyDoc(String fastaPath) throws IOException {
+        return fastaPath + ".taxd";
+    }
+    
+    public static File findTaxonHierarchyDoc(File fastaFile) throws IOException {
+        return new File(fastaFile.getPath() + ".taxd");
+    }
+    
     public static List<File> findNonFastaDocs(String path) throws IOException {
         return findNonFastaDocs(new File(path));
     }

@@ -17,12 +17,15 @@ package biospectra.index;
 
 import biospectra.Configuration;
 import biospectra.lucene.KmerIndexAnalyzer;
+import biospectra.utils.FastaFileHelper;
 import biospectra.utils.FastaFileReader;
 import biospectra.utils.SequenceHelper;
 import java.io.Closeable;
 import java.io.File;
+import java.io.FileReader;
 import java.io.IOException;
 import java.util.List;
+import org.apache.commons.io.IOUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.lucene.analysis.Analyzer;
@@ -102,6 +105,23 @@ public class Indexer implements Closeable {
             throw new IllegalArgumentException("fastaDoc is null");
         }
         
+        File taxonDoc = FastaFileHelper.findTaxonHierarchyDoc(fastaDoc);
+        index(fastaDoc, taxonDoc);
+    }
+    
+    public void index(File fastaDoc, File taxonDoc) throws Exception {
+        if(fastaDoc == null) {
+            throw new IllegalArgumentException("fastaDoc is null");
+        }
+        
+        String taxonTree = "";
+        
+        if(taxonDoc != null && taxonDoc.exists()) {
+            FileReader reader = new FileReader(taxonDoc);
+            taxonTree = IOUtils.toString(reader);
+            IOUtils.closeQuietly(reader);
+        }
+        
         FASTAReader reader = FastaFileReader.getFASTAReader(fastaDoc);
         FASTAEntry read = null;
         
@@ -109,11 +129,13 @@ public class Indexer implements Closeable {
         Field filenameField = new StringField(IndexConstants.FIELD_FILENAME, fastaDoc.getName(), Field.Store.YES);
         Field headerField = new StringField(IndexConstants.FIELD_HEADER, "", Field.Store.YES);
         Field sequenceDirectionField = new StringField(IndexConstants.FIELD_SEQUENCE_DIRECTION, "", Field.Store.YES);
+        Field taxonTreeField = new StringField(IndexConstants.FIELD_TAXONOMY_TREE, taxonTree, Field.Store.YES);
         Field sequenceField = new TextField(IndexConstants.FIELD_SEQUENCE, "", Field.Store.NO);
         
         doc.add(filenameField);
         doc.add(headerField);
         doc.add(sequenceDirectionField);
+        doc.add(taxonTreeField);
         doc.add(sequenceField);
         
         while((read = reader.readNext()) != null) {

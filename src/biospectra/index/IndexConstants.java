@@ -22,6 +22,7 @@ package biospectra.index;
 public class IndexConstants {
     public static final String FIELD_FILENAME = "filename";
     public static final String FIELD_HEADER = "header";
+    public static final String FIELD_TAXONOMY_TREE = "taxonomy";
     public static final String FIELD_SEQUENCE_DIRECTION = "s_direction";
     public static final String FIELD_SEQUENCE = "sequence";
 }
