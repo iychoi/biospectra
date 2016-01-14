@@ -1,5 +1,5 @@
 {
-    "index_path":"../mount/bacteria_ncbi_index_10mers",
+    "index_path":"./index",
     "kmer_size":10,
     "kmer_skips":10,
     "query_term_min_should_match":0.5,

@@ -18,8 +18,11 @@ package biospectra.classify;
 import biospectra.classify.beans.ClassificationResult;
 import biospectra.classify.beans.SearchResultEntry;
 import biospectra.Configuration;
+import biospectra.classify.beans.TaxonTreeDescription;
+import biospectra.classify.beans.Taxonomy;
 import biospectra.index.IndexConstants;
 import biospectra.lucene.KmerQueryAnalyzer;
+import biospectra.utils.JsonSerializer;
 import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
@@ -180,6 +183,79 @@ public class Classifier implements Closeable {
         return booleanQueryBuilder.build();
     }
     
+    private ClassificationResult makeClassificationResult(String header, String sequence, List<SearchResultEntry> resultArr) throws IOException {
+        if(resultArr == null || resultArr.isEmpty()) {
+            return new ClassificationResult(header, sequence, null, ClassificationResult.ClassificationResultType.UNKNOWN, "unknown");
+        } else if(resultArr.size() == 1) {
+            SearchResultEntry entry = resultArr.get(0);
+            String taxonHierarchy = entry.getTaxonHierarchy();
+            if(taxonHierarchy != null && !taxonHierarchy.isEmpty()) {
+                TaxonTreeDescription desc = TaxonTreeDescription.createInstance(taxonHierarchy);
+                String rank = desc.getLowestRank();
+                if(rank == null || rank.isEmpty()) {
+                    rank = "unknown";
+                }
+                return new ClassificationResult(header, sequence, resultArr, ClassificationResult.ClassificationResultType.CLASSIFIED, rank);
+            } else {
+                return new ClassificationResult(header, sequence, resultArr, ClassificationResult.ClassificationResultType.CLASSIFIED, "unknown");
+            }
+        } else {
+            List<TaxonTreeDescription> descs = new ArrayList<TaxonTreeDescription>();
+            for(SearchResultEntry entry : resultArr) {
+                String taxonHierarchy = entry.getTaxonHierarchy();
+                if(taxonHierarchy != null && !taxonHierarchy.isEmpty()) {
+                    TaxonTreeDescription desc = TaxonTreeDescription.createInstance(taxonHierarchy);
+                    descs.add(desc);
+                } else {
+                    // quick fail
+                    return new ClassificationResult(header, sequence, resultArr, ClassificationResult.ClassificationResultType.VAGUE, "unknown");
+                }
+            }
+            
+            String rank = "";
+            TaxonTreeDescription desc1 = descs.get(0);
+            boolean classified = false;
+            for(int idx=0;idx<desc1.getTaxonomyTree().size();idx++) {
+                Taxonomy tax = desc1.getTaxonomyTree().get(idx);
+            
+                boolean foundCommonTaxRank = true;
+                for(int j=1;j<descs.size();j++) {
+                    TaxonTreeDescription desc_target = descs.get(j);
+                    boolean found = false;
+                    for(Taxonomy tax_target : desc_target.getTaxonomyTree()) {
+                        if(tax_target.getTaxid() == tax.getTaxid()) {
+                            // found the same id
+                            found = true;
+                            break;
+                        }
+                    }
+                    
+                    if(!found) {
+                        foundCommonTaxRank = false;
+                        break;
+                    }
+                }
+                
+                if(foundCommonTaxRank) {
+                    rank = desc1.getLowestRank(idx);
+                    if(rank.equalsIgnoreCase("species") || rank.equalsIgnoreCase("species group") || rank.equalsIgnoreCase("genus")) {
+                        classified = true;
+                    }
+                }
+            }
+            
+            if(rank == null || rank.isEmpty()) {
+                rank = "unknown";
+            }
+            
+            if(classified) {
+                return new ClassificationResult(header, sequence, resultArr, ClassificationResult.ClassificationResultType.CLASSIFIED, rank);
+            } else {
+                return new ClassificationResult(header, sequence, resultArr, ClassificationResult.ClassificationResultType.VAGUE, "unknown");
+            }
+        }
+    }
+    
     public ClassificationResult classify(String header, String sequence) throws Exception {
         if(sequence == null || sequence.isEmpty()) {
             throw new IllegalArgumentException("sequence is null or empty");
@@ -197,20 +273,19 @@ public class Classifier implements Closeable {
         
         if(hits.length > 0) {
             List<SearchResultEntry> resultArr = new ArrayList<SearchResultEntry>();
-
             double topscore = topdocs.getMaxScore();
             for(int i=0;i<hits.length;++i) {
-                if(topscore - hits[i].score <= 1) {
+                if(topscore - hits[i].score == 0) {
                     int docId = hits[i].doc;
                     Document d = this.indexSearcher.doc(docId);
                     SearchResultEntry result = new SearchResultEntry(docId, d, i, hits[i].score);
                     resultArr.add(result);
                 }
             }
-
-            classificationResult = new ClassificationResult(header, sequence, resultArr);
+            
+            classificationResult = makeClassificationResult(header, sequence, resultArr);
         } else {
-            classificationResult = new ClassificationResult(header, sequence, null);
+            classificationResult = makeClassificationResult(header, sequence, null);
         }
         
         return classificationResult;

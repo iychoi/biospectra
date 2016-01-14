@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package biospectra.taxdb;
+package biospectra.classify.beans;
 
 import biospectra.utils.JsonSerializer;
 import java.io.File;

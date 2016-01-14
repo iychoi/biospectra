@@ -21,7 +21,7 @@ import biospectra.classify.server.ClassifierServer;
 import biospectra.utils.IndexUtil;
 import biospectra.index.Indexer;
 import biospectra.taxdb.TaxonDB;
-import biospectra.taxdb.Taxonomy;
+import biospectra.classify.beans.Taxonomy;
 import biospectra.utils.FastaFileHelper;
 import biospectra.verification.MetagenomicReadGenerator;
 import java.io.BufferedWriter;

@@ -62,6 +62,7 @@ public class ClassifierClient implements Closeable {
         private String sequence;
         private List<SearchResultEntry> result = new ArrayList<SearchResultEntry>();
         private ClassificationResult.ClassificationResultType type;
+        private String taxonLevel;
         private boolean classified;
         
         public ClassificationResponse() {
@@ -106,6 +107,14 @@ public class ClassifierClient implements Closeable {
 
         public void setType(ClassificationResult.ClassificationResultType type) {
             this.type = type;
+        }
+        
+        public String getTaxonLevel() {
+            return this.taxonLevel;
+        }
+        
+        public void setTaxonLevel(String taxonLevel) {
+            this.taxonLevel = taxonLevel;
         }
         
         public boolean getClassified() {
@@ -212,7 +221,7 @@ public class ClassifierClient implements Closeable {
             while(this.waitingQueue.peek() != null && this.waitingQueue.peek().getClassified()) {
                 // check finalized
                 ClassificationResponse ecres = this.waitingQueue.poll();
-                ClassificationResult bresult = new ClassificationResult(ecres.getHeader(), ecres.getSequence(), ecres.getResult(), ecres.getType());
+                ClassificationResult bresult = new ClassificationResult(ecres.getHeader(), ecres.getSequence(), ecres.getResult(), ecres.getType(), ecres.getTaxonLevel());
                 String json = serializer.toJson(bresult);
 
                 summary.report(bresult);
@@ -228,7 +237,7 @@ public class ClassifierClient implements Closeable {
                 while(this.waitingQueue.peek() != null && this.waitingQueue.peek().getClassified()) {
                     // check finalized
                     ClassificationResponse ecres = this.waitingQueue.poll();
-                    ClassificationResult bresult = new ClassificationResult(ecres.getHeader(), ecres.getSequence(), ecres.getResult(), ecres.getType());
+                    ClassificationResult bresult = new ClassificationResult(ecres.getHeader(), ecres.getSequence(), ecres.getResult(), ecres.getType(), ecres.getTaxonLevel());
                     String json = serializer.toJson(bresult);
 
                     summary.report(bresult);
@@ -259,6 +268,7 @@ public class ClassifierClient implements Closeable {
             } else {
                 cres.addResult(res.getResult());
                 cres.setType(res.getType());
+                cres.setTaxonLevel(res.getTaxonRank());
                 cres.setClassified(true);
                 
                 this.index.remove(res.getReqId());

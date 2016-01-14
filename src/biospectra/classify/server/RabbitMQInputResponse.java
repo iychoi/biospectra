@@ -33,6 +33,7 @@ public class RabbitMQInputResponse {
     private long reqId;
     private List<SearchResultEntry> result = new ArrayList<SearchResultEntry>();
     private ClassificationResult.ClassificationResultType type;
+    private String taxonRank;
 
     public static RabbitMQInputResponse createInstance(File file) throws IOException {
         if(file == null) {
@@ -84,6 +85,16 @@ public class RabbitMQInputResponse {
     @JsonProperty("type")
     public void setType(ClassificationResult.ClassificationResultType type) {
         this.type = type;
+    }
+    
+    @JsonProperty("taxon_rank")
+    public void setTaxonRank(String taxonRank) {
+        this.taxonRank = taxonRank;
+    }
+    
+    @JsonProperty("taxon_rank")
+    public String getTaxonRank() {
+        return taxonRank;
     }
     
     @JsonIgnore

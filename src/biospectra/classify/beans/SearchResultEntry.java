@@ -33,6 +33,7 @@ public class SearchResultEntry {
     private String filename;
     private String header;
     private String sequenceDirection;
+    private String taxonHierarchy;
     private double score;
     
     public SearchResultEntry() {
@@ -44,6 +45,7 @@ public class SearchResultEntry {
         this.filename = d.get(IndexConstants.FIELD_FILENAME);
         this.header = d.get(IndexConstants.FIELD_HEADER);
         this.sequenceDirection = d.get(IndexConstants.FIELD_SEQUENCE_DIRECTION);
+        this.taxonHierarchy = d.get(IndexConstants.FIELD_TAXONOMY_TREE);
         this.rank = rank;
         this.score = score;
     }
@@ -97,6 +99,16 @@ public class SearchResultEntry {
     public void setSequenceDirection(String sequenceDirection) {
         this.sequenceDirection = sequenceDirection;
     }
+    
+    @JsonProperty("taxon_hierarchy")
+    public String getTaxonHierarchy() {
+        return taxonHierarchy;
+    }
+
+    @JsonProperty("taxon_hierarchy")
+    public void setTaxonHierarchy(String taxonHierarchy) {
+        this.taxonHierarchy = taxonHierarchy;
+    }
 
     @JsonProperty("score")
     public double getScore() {
@@ -111,7 +123,7 @@ public class SearchResultEntry {
     @Override
     @JsonIgnore
     public String toString() {
-        return this.rank + "\t" + this.score + "\t" + this.docId + "\t" + this.filename + "\t" + this.sequenceDirection + "\n>" + this.header;
+        return this.rank + "\t" + this.score + "\t" + this.docId + "\t" + this.filename + "\t" + this.sequenceDirection + "\n>" + this.header + "\n" + this.taxonHierarchy;
     }
     
     @JsonIgnore

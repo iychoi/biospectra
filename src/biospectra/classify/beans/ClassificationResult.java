@@ -28,66 +28,30 @@ import org.codehaus.jackson.annotate.JsonProperty;
  * @author iychoi
  */
 public class ClassificationResult {
-
     public enum ClassificationResultType {
         UNKNOWN,
         VAGUE,
         CLASSIFIED,
     }
-
+    
     private String queryHeader;
     private String query;
     private List<SearchResultEntry> result = new ArrayList<SearchResultEntry>();
     private ClassificationResultType type;
+    private String taxonRank;
             
-    public ClassificationResult(String query, List<SearchResultEntry> result) {
-        initialize(null, query, result, null);
+    public ClassificationResult(String queryHeader, String query, List<SearchResultEntry> result, ClassificationResultType type, String taxonRank) {
+        initialize(queryHeader, query, result, type, taxonRank);
     }
     
-    public ClassificationResult(String queryHeader, String query, List<SearchResultEntry> result) {
-        initialize(queryHeader, query, result, null);
-    }
-    
-    public ClassificationResult(String queryHeader, String query, List<SearchResultEntry> result, ClassificationResultType type) {
-        initialize(queryHeader, query, result, type);
-    }
-    
-    private void initialize(String queryHeader, String query, List<SearchResultEntry> result, ClassificationResultType type) {
+    private void initialize(String queryHeader, String query, List<SearchResultEntry> result, ClassificationResultType type, String taxonRank) {
         this.queryHeader = queryHeader;
         this.query = query;
         if(result != null) {
             this.result.addAll(result);
-            if(type == null) {
-                this.type = determineType(result);
-            } else {
-                this.type = type;
-            }
-        } else {
-            this.type = ClassificationResultType.UNKNOWN;
         }
-    }
-    
-    @JsonIgnore
-    private ClassificationResultType determineType(List<SearchResultEntry> result) {
-        if(result.isEmpty()) {
-            return ClassificationResultType.UNKNOWN;
-        } else if(result.size() == 1) {
-            return ClassificationResultType.CLASSIFIED;
-        } else {
-            List<SearchResultEntry> top = new ArrayList<SearchResultEntry>();
-            double score_top = result.get(0).getScore();
-            for(SearchResultEntry r : result) {
-                if(r.getScore() == score_top) {
-                    top.add(r);
-                }
-            }
-            
-            if(top.size() > 1) {
-                return ClassificationResultType.VAGUE;
-            } else {
-                return ClassificationResultType.CLASSIFIED;
-            }
-        }
+        this.type = type;
+        this.taxonRank = taxonRank;
     }
     
     @JsonProperty("query_header")
@@ -128,6 +92,16 @@ public class ClassificationResult {
     @JsonProperty("type")
     public void setType(ClassificationResultType type) {
         this.type = type;
+    }
+    
+    @JsonProperty("taxon_rank")
+    public String getTaxonRank() {
+        return taxonRank;
+    }
+
+    @JsonProperty("taxon_rank")
+    public void setTaxonRank(String taxonRank) {
+        this.taxonRank = taxonRank;
     }
     
     @Override
