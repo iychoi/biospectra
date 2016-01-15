@@ -37,7 +37,7 @@ public class TaxonTreeDescription {
         
         if(json.startsWith("[") && json.endsWith("]")) {
             JsonSerializer serializer = new JsonSerializer();
-            return (TaxonTreeDescription) serializer.fromJson("{\"tree\"=" + json + "}", TaxonTreeDescription.class);
+            return (TaxonTreeDescription) serializer.fromJson("{\"tree\":" + json + "}", TaxonTreeDescription.class);
         } else if(json.startsWith("{") && json.endsWith("}")) {
             JsonSerializer serializer = new JsonSerializer();
             return (TaxonTreeDescription) serializer.fromJson(json, TaxonTreeDescription.class);
