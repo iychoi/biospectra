@@ -15,9 +15,13 @@
  */
 package biospectra.classify.server;
 
+import biospectra.classify.beans.ClassificationResult;
+import biospectra.classify.beans.SearchResultEntry;
 import biospectra.utils.JsonSerializer;
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import org.codehaus.jackson.annotate.JsonIgnore;
 import org.codehaus.jackson.annotate.JsonProperty;
 
@@ -25,29 +29,31 @@ import org.codehaus.jackson.annotate.JsonProperty;
  *
  * @author iychoi
  */
-public class RabbitMQInputRequest {
+public class ClassificationResponseMessage {
     private long reqId;
-    private String sequence;
+    private List<SearchResultEntry> result = new ArrayList<SearchResultEntry>();
+    private ClassificationResult.ClassificationResultType type;
+    private String taxonRank;
 
-    public static RabbitMQInputRequest createInstance(File file) throws IOException {
+    public static ClassificationResponseMessage createInstance(File file) throws IOException {
         if(file == null) {
             throw new IllegalArgumentException("file is null");
         }
 
         JsonSerializer serializer = new JsonSerializer();
-        return (RabbitMQInputRequest) serializer.fromJsonFile(file, RabbitMQInputRequest.class);
+        return (ClassificationResponseMessage) serializer.fromJsonFile(file, ClassificationResponseMessage.class);
     }
     
-    public static RabbitMQInputRequest createInstance(String json) throws IOException {
+    public static ClassificationResponseMessage createInstance(String json) throws IOException {
         if(json == null || json.isEmpty()) {
             throw new IllegalArgumentException("json is empty or null");
         }
         
         JsonSerializer serializer = new JsonSerializer();
-        return (RabbitMQInputRequest) serializer.fromJson(json, RabbitMQInputRequest.class);
+        return (ClassificationResponseMessage) serializer.fromJson(json, ClassificationResponseMessage.class);
     }
     
-    public RabbitMQInputRequest() {
+    public ClassificationResponseMessage() {
         
     }
     
@@ -61,14 +67,34 @@ public class RabbitMQInputRequest {
         return reqId;
     }
 
-    @JsonProperty("sequence")
-    public void setSequence(String sequence) {
-        this.sequence = sequence;
+    @JsonProperty("result")
+    public List<SearchResultEntry> getResult() {
+        return result;
+    }
+
+    @JsonProperty("result")
+    public void addResult(List<SearchResultEntry> result) {
+        this.result.addAll(result);
+    }
+
+    @JsonProperty("type")
+    public ClassificationResult.ClassificationResultType getType() {
+        return type;
+    }
+
+    @JsonProperty("type")
+    public void setType(ClassificationResult.ClassificationResultType type) {
+        this.type = type;
     }
     
-    @JsonProperty("sequence")
-    public String getSequence() {
-        return sequence;
+    @JsonProperty("taxon_rank")
+    public void setTaxonRank(String taxonRank) {
+        this.taxonRank = taxonRank;
+    }
+    
+    @JsonProperty("taxon_rank")
+    public String getTaxonRank() {
+        return taxonRank;
     }
     
     @JsonIgnore

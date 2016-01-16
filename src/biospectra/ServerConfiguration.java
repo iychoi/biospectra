@@ -15,7 +15,6 @@
  */
 package biospectra;
 
-import biospectra.classify.server.RabbitMQInputReceiverConstants;
 import biospectra.utils.JsonSerializer;
 import java.io.File;
 import java.io.IOException;

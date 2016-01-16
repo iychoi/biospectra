@@ -53,7 +53,7 @@ public class ClassifierServer implements Closeable {
         this.handler = new RabbitMQInputServerEventHandler() {
 
             @Override
-            protected void handleMessage(RabbitMQInputRequest req, String replyTo) {
+            protected void handleMessage(ClassificationRequestMessage req, String replyTo) {
                 try {
                     addDataset(req, replyTo);
                 } catch (Exception ex) {
@@ -70,7 +70,7 @@ public class ClassifierServer implements Closeable {
                 new ThreadPoolExecutor.CallerRunsPolicy());
     }
     
-    private synchronized void addDataset(final RabbitMQInputRequest req, final String replyTo) throws Exception {
+    private synchronized void addDataset(final ClassificationRequestMessage req, final String replyTo) throws Exception {
         if(req.getSequence() == null || req.getSequence().isEmpty()) {
             throw new IllegalArgumentException("sequence is null or empty");
         }
@@ -80,14 +80,16 @@ public class ClassifierServer implements Closeable {
             @Override
             public void run() {
                 try {
+                    LOG.info("classify - reqId(" + req.getReqId() + ")");
                     ClassificationResult result = searcher.classify("", req.getSequence());
-                    RabbitMQInputResponse res = new RabbitMQInputResponse();
+                    ClassificationResponseMessage res = new ClassificationResponseMessage();
                     
                     res.setReqId(req.getReqId());
                     res.setType(result.getType());
                     res.setTaxonRank(result.getTaxonRank());
                     res.addResult(result.getResult());
                     
+                    LOG.info("return - reqId(" + req.getReqId() + ")");
                     receiver.publishMessage(res, replyTo);
                 } catch (Exception ex) {
                     LOG.error("Exception occurred during a classification", ex);

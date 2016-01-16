@@ -16,12 +16,11 @@
 package biospectra.classify;
 
 import biospectra.classify.beans.ClassificationResultSummary;
-import biospectra.classify.server.RabbitMQInputResponse;
+import biospectra.classify.server.ClassificationResponseMessage;
 import biospectra.ClientConfiguration;
 import biospectra.classify.beans.ClassificationResult;
-import biospectra.classify.beans.SearchResultEntry;
+import biospectra.classify.server.ClassificationRequest;
 import biospectra.classify.server.RabbitMQInputClient;
-import biospectra.classify.server.RabbitMQInputRequest;
 import biospectra.utils.FastaFileReader;
 import biospectra.utils.JsonSerializer;
 import java.io.BufferedWriter;
@@ -53,78 +52,9 @@ public class ClassifierClient implements Closeable {
     private List<RabbitMQInputClient> clients = new ArrayList<RabbitMQInputClient>();
     private RabbitMQInputClient.RabbitMQInputClientEventHandler handler;
     private long reqId;
-    private ArrayBlockingQueue<ClassificationResponse> waitingQueue = new ArrayBlockingQueue<ClassificationResponse>(1000, true);
-    private Map<Long, ClassificationResponse> index = new HashMap<Long, ClassificationResponse>();
-    
-    private static class ClassificationResponse {
-        private long reqId;
-        private String header;
-        private String sequence;
-        private List<SearchResultEntry> result = new ArrayList<SearchResultEntry>();
-        private ClassificationResult.ClassificationResultType type;
-        private String taxonLevel;
-        private boolean classified;
-        
-        public ClassificationResponse() {
-            
-        }
-        
-        public void setReqId(long reqId) {
-            this.reqId = reqId;
-        }
-        
-        public long getReqId() {
-            return reqId;
-        }
-
-        public void setHeader(String header) {
-            this.header = header;
-        }
-        
-        public String getHeader() {
-            return header;
-        }
-
-        public void setSequence(String sequence) {
-            this.sequence = sequence;
-        }
-        
-        public String getSequence() {
-            return sequence;
-        }
-        
-        public List<SearchResultEntry> getResult() {
-            return result;
-        }
-
-        public void addResult(List<SearchResultEntry> result) {
-            this.result.addAll(result);
-        }
-
-        public ClassificationResult.ClassificationResultType getType() {
-            return type;
-        }
-
-        public void setType(ClassificationResult.ClassificationResultType type) {
-            this.type = type;
-        }
-        
-        public String getTaxonLevel() {
-            return this.taxonLevel;
-        }
-        
-        public void setTaxonLevel(String taxonLevel) {
-            this.taxonLevel = taxonLevel;
-        }
-        
-        public boolean getClassified() {
-            return this.classified;
-        }
-        
-        public void setClassified(boolean classified) {
-            this.classified = classified;
-        }
-    }
+    private ArrayBlockingQueue<ClassificationRequest> requestQueue = new ArrayBlockingQueue<ClassificationRequest>(1000, true);
+    private Map<Long, ClassificationRequest> requestMap = new HashMap<Long, ClassificationRequest>();
+    private Map<Long, ClassificationResponseMessage> responseMap = new HashMap<Long, ClassificationResponseMessage>();
     
     public ClassifierClient(ClientConfiguration conf) throws Exception {
         if(conf == null) {
@@ -135,9 +65,9 @@ public class ClassifierClient implements Closeable {
         this.handler = new RabbitMQInputClient.RabbitMQInputClientEventHandler() {
 
             @Override
-            protected void handleMessage(RabbitMQInputResponse res) {
+            protected void handleMessage(ClassificationResponseMessage res) {
                 try {
-                    finalizeClassificationResult(res);
+                    returnClassificationResponse(res);
                 } catch (Exception ex) {
                     LOG.error("cannot finalize classification result", ex);
                 }
@@ -200,52 +130,75 @@ public class ClassifierClient implements Closeable {
             final String sequence = read.getSequence();
             final String header = read.getHeaderLine();
 
-            ClassificationResponse cres = new ClassificationResponse();
-            cres.setReqId(this.reqId);
-            cres.setHeader(header);
-            cres.setSequence(sequence);
+            ClassificationRequest creq = new ClassificationRequest();
+            creq.setReqId(this.reqId);
+            creq.setHeader(header);
+            creq.setSequence(sequence);
+        
+            synchronized (this.requestQueue) {
+                this.requestQueue.add(creq);
+            }
+            synchronized (this.requestMap) {
+                this.requestMap.put(this.reqId, creq);
             
-            this.waitingQueue.add(cres);
-            synchronized (this.index) {
-                this.index.put(this.reqId, cres);
             }
             
             RabbitMQInputClient client = this.clients.get(turn);
-            RabbitMQInputRequest req = new RabbitMQInputRequest();
-            req.setReqId(this.reqId);
-            req.setSequence(sequence);
-            
-            client.request(req);
+            client.request(creq.getRequestMessage());
+            // message
+            LOG.info("req : " + this.reqId);
             this.reqId++;
             
-            while(this.waitingQueue.peek() != null && this.waitingQueue.peek().getClassified()) {
-                // check finalized
-                ClassificationResponse ecres = this.waitingQueue.poll();
-                ClassificationResult bresult = new ClassificationResult(ecres.getHeader(), ecres.getSequence(), ecres.getResult(), ecres.getType(), ecres.getTaxonLevel());
-                String json = serializer.toJson(bresult);
+            synchronized (this.requestQueue) {
+                while(this.requestQueue.peek() != null && this.requestQueue.peek().getReturned()) {
+                    // check returned
+                    ClassificationRequest ecreq = this.requestQueue.poll();
+                    synchronized (this.requestMap) {
+                        this.requestMap.remove(ecreq.getReqId());
+                    }
 
-                summary.report(bresult);
-                bw.write(json + "\n");
+                    ClassificationResponseMessage ecres = null;
+                    synchronized (this.responseMap) {
+                        ecres = this.responseMap.get(ecreq.getReqId());
+                        this.responseMap.remove(ecreq.getReqId());
+                    }
+
+                    ClassificationResult bresult = new ClassificationResult(ecreq.getHeader(), ecreq.getSequence(), ecres.getResult(), ecres.getType(), ecres.getTaxonRank());
+                    String json = serializer.toJson(bresult);
+
+                    summary.report(bresult);
+                    bw.write(json + "\n");
+                }
             }
             
             turn++;
             turn = turn % this.clients.size();
         }
         
-        synchronized (this.waitingQueue) {
-            while(this.waitingQueue.size() > 0) {
-                while(this.waitingQueue.peek() != null && this.waitingQueue.peek().getClassified()) {
-                    // check finalized
-                    ClassificationResponse ecres = this.waitingQueue.poll();
-                    ClassificationResult bresult = new ClassificationResult(ecres.getHeader(), ecres.getSequence(), ecres.getResult(), ecres.getType(), ecres.getTaxonLevel());
+        synchronized (this.requestQueue) {
+            while(this.requestQueue.size() > 0) {
+                while(this.requestQueue.peek() != null && this.requestQueue.peek().getReturned()) {
+                    // check returned
+                    ClassificationRequest ecreq = this.requestQueue.poll();
+                    synchronized (this.requestMap) {
+                        this.requestMap.remove(ecreq.getReqId());
+                    }
+                    
+                    ClassificationResponseMessage ecres = null;
+                    synchronized (this.responseMap) {
+                        ecres = this.responseMap.get(ecreq.getReqId());
+                        this.responseMap.remove(ecreq.getReqId());
+                    }
+                    
+                    ClassificationResult bresult = new ClassificationResult(ecreq.getHeader(), ecreq.getSequence(), ecres.getResult(), ecres.getType(), ecres.getTaxonRank());
                     String json = serializer.toJson(bresult);
 
                     summary.report(bresult);
                     bw.write(json + "\n");
                 }
 
-                if(this.waitingQueue.size() > 0) {
-                    this.waitingQueue.wait();
+                if(this.requestQueue.size() > 0) {
+                    this.requestQueue.wait();
                 }
             }
         }
@@ -260,22 +213,28 @@ public class ClassifierClient implements Closeable {
         }
     }
     
-    private void finalizeClassificationResult(RabbitMQInputResponse res) {
-        synchronized (this.index) {
-            ClassificationResponse cres = this.index.get(res.getReqId());
-            if(cres == null) {
-                LOG.error("cannot find matching reqId = " + res.getReqId());
-            } else {
-                cres.addResult(res.getResult());
-                cres.setType(res.getType());
-                cres.setTaxonLevel(res.getTaxonRank());
-                cres.setClassified(true);
-                
-                this.index.remove(res.getReqId());
-                synchronized (this.waitingQueue) {
-                    this.waitingQueue.notifyAll();
-                }
-            }
+    private void returnClassificationResponse(ClassificationResponseMessage res) {
+        // message
+        LOG.info("res : " + res.getReqId());
+        
+        ClassificationRequest ecreq = null;
+        synchronized (this.requestMap) {
+            ecreq = this.requestMap.get(res.getReqId());
+        }
+        
+        if(ecreq == null) {
+            LOG.error("cannot find matching reqId = " + res.getReqId());
+            return;
+        }
+        
+        synchronized (this.responseMap) {
+            this.responseMap.put(res.getReqId(), res);
+        }
+
+        ecreq.setReturned(true);
+        
+        synchronized (this.requestQueue) {
+            this.requestQueue.notifyAll();
         }
     }
 
@@ -285,7 +244,8 @@ public class ClassifierClient implements Closeable {
             client.close();
         }
         this.clients.clear();
-        this.waitingQueue.clear();
-        this.index.clear();
+        this.requestQueue.clear();
+        this.requestMap.clear();
+        this.responseMap.clear();
     }
 }

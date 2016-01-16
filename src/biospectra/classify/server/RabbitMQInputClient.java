@@ -47,7 +47,7 @@ public class RabbitMQInputClient implements Closeable {
     private String queueName;
 
     public static abstract class RabbitMQInputClientEventHandler {
-        protected abstract void handleMessage(RabbitMQInputResponse res);
+        protected abstract void handleMessage(ClassificationResponseMessage res);
     }
     
     public RabbitMQInputClient(ClientConfiguration conf, int hostId, RabbitMQInputClientEventHandler handler) {
@@ -95,7 +95,7 @@ public class RabbitMQInputClient implements Closeable {
                 LOG.debug("received - " + envelope.getRoutingKey() + ":" + message);
                 
                 if(handler != null) {
-                    RabbitMQInputResponse res = RabbitMQInputResponse.createInstance(message);
+                    ClassificationResponseMessage res = ClassificationResponseMessage.createInstance(message);
                     handler.handleMessage(res);
                 }
                 
@@ -118,7 +118,7 @@ public class RabbitMQInputClient implements Closeable {
         this.workerThread.start();
     }
     
-    public void request(RabbitMQInputRequest req) {
+    public void request(ClassificationRequestMessage req) {
         if(!this.channel.isOpen()) {
             throw new IllegalStateException("reader is not connected");
         }
