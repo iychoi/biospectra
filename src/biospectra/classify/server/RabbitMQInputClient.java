@@ -61,6 +61,16 @@ public class RabbitMQInputClient implements Closeable {
     private Thread timeoutThread;
 
     public static abstract class RabbitMQInputClientEventHandler {
+        private RabbitMQInputClient client;
+        
+        public void setClient(RabbitMQInputClient client) {
+            this.client = client;
+        }
+        
+        public RabbitMQInputClient getClient() {
+            return this.client;
+        }
+        
         public abstract void onSuccess(long reqId, String header, String sequence, List<SearchResultEntry> result, ClassificationResult.ClassificationResultType type, String taxonRank);
         public abstract void onTimeout(long reqId, String header, String sequence);
     }
@@ -81,6 +91,7 @@ public class RabbitMQInputClient implements Closeable {
         this.conf = conf;
         this.hostId = hostId;
         this.handler = handler;
+        this.handler.setClient(this);
     }
     
     public void connect() throws IOException, TimeoutException {
@@ -272,7 +283,13 @@ public class RabbitMQInputClient implements Closeable {
     @Override
     public void close() throws IOException {
         if(this.workerThread != null) {
+            this.workerThread.interrupt();
             this.workerThread = null;
+        }
+        
+        if(this.timeoutThread != null) {
+            this.timeoutThread.interrupt();
+            this.timeoutThread = null;
         }
         
         if(this.channel != null) {

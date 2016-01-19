@@ -46,9 +46,13 @@ public class ClassifierClient implements Closeable {
     
     private ClientConfiguration conf;
     private List<RabbitMQInputClient> clients = new ArrayList<RabbitMQInputClient>();
-    private RabbitMQInputClient.RabbitMQInputClientEventHandler handler;
-    private RabbitMQInputClient.RabbitMQInputClientEventHandler responseHandler;
+    private ClientEventHandler responseHandler;
     private long reqId = 0;
+    
+    public static abstract class ClientEventHandler {
+        public abstract void onSuccess(long reqId, String header, String sequence, List<SearchResultEntry> result, ClassificationResult.ClassificationResultType type, String taxonRank);
+        public abstract void onTimeout(long reqId, String header, String sequence);
+    }
     
     public ClassifierClient(ClientConfiguration conf) throws Exception {
         if(conf == null) {
@@ -56,29 +60,35 @@ public class ClassifierClient implements Closeable {
         }
         
         this.conf = conf;
-        this.handler = new RabbitMQInputClient.RabbitMQInputClientEventHandler() {
-
-            @Override
-            public void onSuccess(long reqId, String header, String sequence, List<SearchResultEntry> result, ClassificationResult.ClassificationResultType type, String taxonRank) {
-                if(responseHandler != null) {
-                    responseHandler.onSuccess(reqId, header, sequence, result, type, taxonRank);
-                } else {
-                    LOG.error("responseHandler is not set");
-                }
-            }
-
-            @Override
-            public void onTimeout(long reqId, String header, String sequence) {
-                if(responseHandler != null) {
-                    responseHandler.onTimeout(reqId, header, sequence);
-                } else {
-                    LOG.error("responseHandler is not set");
-                }
-            }
-        };
         
         for(int i=0;i<conf.getRabbitMQHostnames().size();i++) {
-            RabbitMQInputClient client = new RabbitMQInputClient(conf, i, this.handler);
+            
+            RabbitMQInputClient.RabbitMQInputClientEventHandler handler = new RabbitMQInputClient.RabbitMQInputClientEventHandler() {
+                @Override
+                public void onSuccess(long reqId, String header, String sequence, List<SearchResultEntry> result, ClassificationResult.ClassificationResultType type, String taxonRank) {
+                    if(responseHandler != null) {
+                        synchronized (responseHandler) {
+                            responseHandler.onSuccess(reqId, header, sequence, result, type, taxonRank);
+                        }
+                    } else {
+                        LOG.error("responseHandler is not set");
+                    }
+                }
+
+                @Override
+                public void onTimeout(long reqId, String header, String sequence) {
+                    if(responseHandler != null) {
+                        synchronized (responseHandler) {
+                            responseHandler.onTimeout(reqId, header, sequence);
+                            this.getClient().setReachable(false);
+                        }
+                    } else {
+                        LOG.error("responseHandler is not set");
+                    }
+                }
+            };
+            
+            RabbitMQInputClient client = new RabbitMQInputClient(conf, i, handler);
             this.clients.add(client);
         }
     }
@@ -94,6 +104,32 @@ public class ClassifierClient implements Closeable {
         }
         
         this.reqId = 0;
+    }
+    
+    private synchronized RabbitMQInputClient getNextLiveClient() {
+        int liveClients = 0;
+        for(RabbitMQInputClient client : this.clients) {
+            if(client.isReachable()) {
+                liveClients++;
+            }
+        }
+        
+        if(liveClients <= 0) {
+            return null;
+        }
+        
+        int turn = (int) (this.reqId % liveClients);
+        int client_passed = 0;
+        for(RabbitMQInputClient client : this.clients) {
+            if(client.isReachable()) {
+                if(client_passed == turn) {
+                    return client;
+                } else {
+                    client_passed++;
+                }
+            }
+        }
+        return null;
     }
     
     public synchronized void classify(File inputFasta, File classifyOutput, File summaryOutput) throws Exception {
@@ -125,12 +161,9 @@ public class ClassifierClient implements Closeable {
         summary.setQueryFilename(inputFasta.getName());
         summary.setStartTime(new Date());
         
-        int turn = 0;
-        
         final JsonSerializer serializer = new JsonSerializer();
         
-        this.responseHandler = new RabbitMQInputClient.RabbitMQInputClientEventHandler() {
-            private int turn = 0;
+        this.responseHandler = new ClientEventHandler() {
             
             @Override
             public void onSuccess(long reqId, String header, String sequence, List<SearchResultEntry> result, ClassificationResult.ClassificationResultType type, String taxonRank) {
@@ -147,7 +180,12 @@ public class ClassifierClient implements Closeable {
 
             @Override
             public void onTimeout(long reqId, String header, String sequence) {
-                RabbitMQInputClient client = clients.get(this.turn);
+                RabbitMQInputClient client = getNextLiveClient();
+                if(client == null) {
+                    LOG.error("no live client");
+                    return;
+                }
+                
                 try {
                     client.request(reqId, header, sequence);
                 } catch (IOException ex) {
@@ -155,8 +193,6 @@ public class ClassifierClient implements Closeable {
                 } catch (InterruptedException ex) {
                     LOG.error(ex);
                 }
-                this.turn++;
-                this.turn = this.turn % clients.size();
             }
         };
 
@@ -164,7 +200,12 @@ public class ClassifierClient implements Closeable {
             final String sequence = read.getSequence();
             final String header = read.getHeaderLine();
 
-            RabbitMQInputClient client = this.clients.get(turn);
+            RabbitMQInputClient client = getNextLiveClient();
+            if(client == null) {
+                LOG.error("no live client");
+                return;
+            }
+            
             if(client.requestWouldBlock()) {
                 try {
                     client.waitForTasks();
@@ -181,9 +222,6 @@ public class ClassifierClient implements Closeable {
                 LOG.error(ex);
             }
             this.reqId++;
-            
-            turn++;
-            turn = turn % this.clients.size();
         }
         
         for(RabbitMQInputClient client : this.clients) {
