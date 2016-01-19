@@ -15,10 +15,6 @@
  */
 package biospectra.classify.server;
 
-import biospectra.classify.beans.SearchResultEntry;
-import java.util.ArrayList;
-import java.util.List;
-
 /**
  *
  * @author iychoi
@@ -27,9 +23,15 @@ public class ClassificationRequest {
     private long reqId;
     private String header;
     private String sequence;
-    private List<SearchResultEntry> result = new ArrayList<SearchResultEntry>();
-    private boolean returned;
-
+    private long sentTime;
+    private RequestStatus status = RequestStatus.STATUS_UNKNOWN;
+    
+    public static enum RequestStatus {
+        STATUS_UNKNOWN,
+        STATUS_RESPONDED,
+        STATUS_TIMEOUT,
+    }
+    
     public ClassificationRequest() {
 
     }
@@ -57,13 +59,21 @@ public class ClassificationRequest {
     public String getSequence() {
         return sequence;
     }
-
-    public synchronized boolean getReturned() {
-        return this.returned;
+    
+    public synchronized void setSentTime(long sentTime) {
+        this.sentTime = sentTime;
     }
-
-    public synchronized void setReturned(boolean returned) {
-        this.returned = returned;
+    
+    public synchronized long getSentTime() {
+        return this.sentTime;
+    }
+    
+    public synchronized void setStatus(RequestStatus status) {
+        this.status = status;
+    }
+    
+    public synchronized RequestStatus getStatus() {
+        return this.status;
     }
     
     public ClassificationRequestMessage getRequestMessage() {
@@ -71,5 +81,21 @@ public class ClassificationRequest {
         reqMsg.setReqId(this.reqId);
         reqMsg.setSequence(this.sequence);
         return reqMsg;
+    }
+    
+    @Override
+    public int hashCode() {
+        int hash = 7;
+        hash = 73 * hash + (int) (this.reqId ^ (this.reqId >>> 32));
+        return hash;
+    }
+    
+    @Override
+    public boolean equals(Object o) {
+        if(o instanceof ClassificationRequest && ((ClassificationRequest)o).reqId == this.reqId) {
+            return true;
+        } else {
+            return false;
+        }
     }
 }

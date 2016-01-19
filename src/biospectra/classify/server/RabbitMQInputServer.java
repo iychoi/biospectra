@@ -88,12 +88,12 @@ public class RabbitMQInputServer implements Closeable {
                 
                 LOG.debug("received - " + envelope.getRoutingKey() + ":" + message);
                 
+                channel.basicAck(envelope.getDeliveryTag(), false);
+                
                 if(handler != null) {
                     ClassificationRequestMessage req = ClassificationRequestMessage.createInstance(message);
                     handler.handleMessage(req, properties.getReplyTo());
                 }
-                
-                channel.basicAck(envelope.getDeliveryTag(), false);
             }
         };
         

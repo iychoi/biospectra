@@ -16,6 +16,8 @@
 package biospectra.classify.server;
 
 import biospectra.ClientConfiguration;
+import biospectra.classify.beans.ClassificationResult;
+import biospectra.classify.beans.SearchResultEntry;
 import com.rabbitmq.client.AMQP;
 import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
@@ -25,6 +27,11 @@ import com.rabbitmq.client.DefaultConsumer;
 import com.rabbitmq.client.Envelope;
 import java.io.Closeable;
 import java.io.IOException;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.TimeoutException;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -37,6 +44,9 @@ public class RabbitMQInputClient implements Closeable {
     
     private static final Log LOG = LogFactory.getLog(RabbitMQInputClient.class);
     
+    private static final int QUEUE_SIZE = 4;
+    private static final long QUERY_TIMEOUT = 30*1000;
+    
     private ClientConfiguration conf;
     private int hostId;
     private RabbitMQInputClientEventHandler handler;
@@ -45,9 +55,14 @@ public class RabbitMQInputClient implements Closeable {
     private Consumer consumer;
     private Thread workerThread;
     private String queueName;
+    private boolean reachable = false;
+    private ArrayBlockingQueue<ClassificationRequest> requestQueue = new ArrayBlockingQueue<ClassificationRequest>(QUEUE_SIZE, true);
+    private Map<Long, ClassificationRequest> requestMap = new HashMap<Long, ClassificationRequest>();
+    private Thread timeoutThread;
 
     public static abstract class RabbitMQInputClientEventHandler {
-        protected abstract void handleMessage(ClassificationResponseMessage res);
+        public abstract void onSuccess(long reqId, String header, String sequence, List<SearchResultEntry> result, ClassificationResult.ClassificationResultType type, String taxonRank);
+        public abstract void onTimeout(long reqId, String header, String sequence);
     }
     
     public RabbitMQInputClient(ClientConfiguration conf, int hostId, RabbitMQInputClientEventHandler handler) {
@@ -91,15 +106,45 @@ public class RabbitMQInputClient implements Closeable {
             public void handleDelivery(String consumerTag, Envelope envelope, 
                     AMQP.BasicProperties properties, byte[] body) throws IOException {
                 String message = new String(body, "UTF-8");
-                
-                LOG.debug("received - " + envelope.getRoutingKey() + ":" + message);
-                
+
+                channel.basicAck(envelope.getDeliveryTag(), false);
+
                 if(handler != null) {
                     ClassificationResponseMessage res = ClassificationResponseMessage.createInstance(message);
-                    handler.handleMessage(res);
+                    ClassificationRequest ereq = null;
+                    synchronized (requestMap) {
+                        ereq = requestMap.get(res.getReqId());
+                        if(ereq != null) {
+                            requestMap.remove(res.getReqId());
+                        }
+                    }
+
+                    if(ereq != null) {
+                        ClassificationResponse eres = new ClassificationResponse(ereq, res);
+                        
+                        boolean responded = false;
+                        synchronized (ereq) {
+                            ClassificationRequest.RequestStatus status = ereq.getStatus();
+                            if(status.equals(ClassificationRequest.RequestStatus.STATUS_UNKNOWN)) {
+                                ereq.setStatus(ClassificationRequest.RequestStatus.STATUS_RESPONDED);
+                                responded = true;
+                            }
+                            
+                            requestQueue.remove(ereq);
+                        }
+                        
+                        if(responded) {
+                            synchronized (handler) {
+                                LOG.info("res : " + ereq.getReqId());
+                                handler.onSuccess(eres.getReqId(), eres.getHeader(), eres.getSequence(), eres.getResult(), eres.getType(), eres.getTaxonRank());
+                            }
+                            
+                            synchronized (requestQueue) {
+                                requestQueue.notifyAll();
+                            }
+                        }
+                    }
                 }
-                
-                channel.basicAck(envelope.getDeliveryTag(), false);
             }
         };
         
@@ -116,21 +161,112 @@ public class RabbitMQInputClient implements Closeable {
             }
         });
         this.workerThread.start();
+        this.reachable = true;
+        
+        this.timeoutThread = new Thread(new Runnable() {
+
+            @Override
+            public void run() {
+                while(true) {
+                    boolean cont = false;
+                    if(requestQueue.size() > 0) {
+                        ClassificationRequest ereq = requestQueue.peek();
+                        Date cur = new Date();
+                        if(ereq != null && cur.getTime() - ereq.getSentTime() >= QUERY_TIMEOUT) {
+                            //timeout
+                            boolean timeout = false;
+                            synchronized (ereq) {
+                                ClassificationRequest.RequestStatus status = ereq.getStatus();
+                                if(status.equals(ClassificationRequest.RequestStatus.STATUS_UNKNOWN)) {
+                                    ereq.setStatus(ClassificationRequest.RequestStatus.STATUS_TIMEOUT);
+                                    timeout = true;
+                                }
+                                
+                                requestQueue.remove(ereq);
+                            }
+                            
+                            if(timeout) {
+                                synchronized (handler) {
+                                    LOG.info("timeout : " + ereq.getReqId());
+                                    handler.onTimeout(ereq.getReqId(), ereq.getHeader(), ereq.getSequence());
+                                }
+                                
+                                synchronized (requestQueue) {
+                                    requestQueue.notifyAll();
+                                }
+                            }
+                            cont = true;
+                        }
+                    }
+                
+                    if(!cont) {
+                        try {
+                            Thread.sleep(1000);
+                        } catch (InterruptedException ex) {
+                            break;
+                        }
+                    }
+                }
+            }
+        });
+        this.timeoutThread.start();
     }
     
-    public void request(ClassificationRequestMessage req) {
+    public void waitForTasks() throws InterruptedException {
         if(!this.channel.isOpen()) {
-            throw new IllegalStateException("reader is not connected");
+            throw new IllegalStateException("client is not connected");
         }
         
-        LOG.debug("request classification - " + req.getReqId());
-        try {
-            AMQP.BasicProperties.Builder builder = new AMQP.BasicProperties.Builder();
-            AMQP.BasicProperties prop = builder.replyTo(this.queueName).build();
-            this.channel.basicPublish("", "request", prop, req.toJson().getBytes());
-        } catch (IOException ex) {
-            LOG.error("Cannot publish", ex);
+        synchronized (this.requestQueue) {
+            while(this.requestQueue.size() != 0) {
+                this.requestQueue.wait();
+            }
         }
+    }
+    
+    public boolean requestWouldBlock() {
+        if(!this.channel.isOpen()) {
+            throw new IllegalStateException("client is not connected");
+        }
+        
+        return this.requestQueue.size() == QUEUE_SIZE;
+    }
+    
+    public void request(long reqId, String header, String sequence) throws IOException, InterruptedException {
+        if(!this.channel.isOpen()) {
+            throw new IllegalStateException("client is not connected");
+        }
+        
+        ClassificationRequest creq = new ClassificationRequest();
+        creq.setReqId(reqId);
+        creq.setHeader(header);
+        creq.setSequence(sequence);
+        
+        // send
+        this.requestQueue.put(creq);
+        Date cur = new Date();
+        creq.setSentTime(cur.getTime());
+        
+        synchronized (this.requestMap) {
+            this.requestMap.put(reqId, creq);
+        }
+        
+        LOG.info("req : " + reqId);
+        
+        ClassificationRequestMessage reqMsg = creq.getRequestMessage();
+        
+        AMQP.BasicProperties.Builder builder = new AMQP.BasicProperties.Builder();
+        AMQP.BasicProperties prop = builder.replyTo(this.queueName).build();
+        this.channel.basicPublish("", "request", prop, reqMsg.toJson().getBytes());
+        
+    }
+    
+    public void setReachable(boolean reachable) {
+        this.reachable = reachable;
+    }
+    
+    public boolean isReachable() {
+        return this.reachable;
     }
 
     @Override
@@ -155,5 +291,10 @@ public class RabbitMQInputClient implements Closeable {
             }
             this.connection = null;
         }
+        
+        this.requestQueue.clear();
+        this.requestMap.clear();
+        
+        this.reachable = false;
     }
 }
