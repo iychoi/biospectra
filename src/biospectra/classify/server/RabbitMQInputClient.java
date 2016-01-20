@@ -46,6 +46,7 @@ public class RabbitMQInputClient implements Closeable {
     
     private static final int QUEUE_SIZE = 4;
     private static final long QUERY_TIMEOUT = 30*1000;
+    private static final long TIMEOUT_MAX_COUNT = 3;
     
     private ClientConfiguration conf;
     private int hostId;
@@ -59,6 +60,7 @@ public class RabbitMQInputClient implements Closeable {
     private ArrayBlockingQueue<ClassificationRequest> requestQueue = new ArrayBlockingQueue<ClassificationRequest>(QUEUE_SIZE, true);
     private Map<Long, ClassificationRequest> requestMap = new HashMap<Long, ClassificationRequest>();
     private Thread timeoutThread;
+    private int timeout;
 
     public static abstract class RabbitMQInputClientEventHandler {
         private RabbitMQInputClient client;
@@ -184,6 +186,7 @@ public class RabbitMQInputClient implements Closeable {
                         ClassificationRequest ereq = requestQueue.peek();
                         Date cur = new Date();
                         if(ereq != null && cur.getTime() - ereq.getSentTime() >= QUERY_TIMEOUT) {
+                            LOG.info("found timeout request");
                             //timeout
                             boolean timeout = false;
                             synchronized (ereq) {
@@ -272,11 +275,19 @@ public class RabbitMQInputClient implements Closeable {
         
     }
     
-    public void setReachable(boolean reachable) {
+    public synchronized void reportTimeout() {
+        this.timeout++;
+        
+        if(this.timeout >= TIMEOUT_MAX_COUNT) {
+            this.reachable = false;
+        }
+    }
+    
+    public synchronized void setReachable(boolean reachable) {
         this.reachable = reachable;
     }
     
-    public boolean isReachable() {
+    public synchronized boolean isReachable() {
         return this.reachable;
     }
 

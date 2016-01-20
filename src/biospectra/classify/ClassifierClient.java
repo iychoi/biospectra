@@ -77,10 +77,12 @@ public class ClassifierClient implements Closeable {
 
                 @Override
                 public void onTimeout(long reqId, String header, String sequence) {
+                    RabbitMQInputClient client = this.getClient();
+                    client.reportTimeout();
+                    
                     if(responseHandler != null) {
                         synchronized (responseHandler) {
                             responseHandler.onTimeout(reqId, header, sequence);
-                            this.getClient().setReachable(false);
                         }
                     } else {
                         LOG.error("responseHandler is not set");
@@ -106,13 +108,19 @@ public class ClassifierClient implements Closeable {
         this.reqId = 0;
     }
     
-    private synchronized RabbitMQInputClient getNextLiveClient() {
+    private int getLiveClients() {
         int liveClients = 0;
         for(RabbitMQInputClient client : this.clients) {
             if(client.isReachable()) {
                 liveClients++;
             }
         }
+        
+        return liveClients;
+    }
+    
+    private RabbitMQInputClient getNextLiveClient() {
+        int liveClients = getLiveClients();
         
         if(liveClients <= 0) {
             return null;
@@ -139,6 +147,12 @@ public class ClassifierClient implements Closeable {
         
         if(classifyOutput == null) {
             throw new IllegalArgumentException("classifyOutput is null");
+        }
+        
+        int liveClients = getLiveClients();
+        if(liveClients <= 0) {
+            LOG.error("no live client");
+            return;
         }
         
         if(!classifyOutput.getParentFile().exists()) {
@@ -187,6 +201,7 @@ public class ClassifierClient implements Closeable {
                 }
                 
                 try {
+                    LOG.info("retransmit reqId = " + reqId);
                     client.request(reqId, header, sequence);
                 } catch (IOException ex) {
                     LOG.error(ex);
@@ -203,7 +218,7 @@ public class ClassifierClient implements Closeable {
             RabbitMQInputClient client = getNextLiveClient();
             if(client == null) {
                 LOG.error("no live client");
-                return;
+                break;
             }
             
             if(client.requestWouldBlock()) {
