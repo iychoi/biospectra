@@ -40,7 +40,8 @@ public class RabbitMQInputServer implements Closeable {
     private ServerConfiguration conf;
     private RabbitMQInputServerEventHandler handler;
     private Connection connection;
-    private Channel channel;
+    private Channel requestChannel;
+    private Channel responseChannel;
     private Consumer consumer;
     private Thread workerThread;
 
@@ -61,7 +62,7 @@ public class RabbitMQInputServer implements Closeable {
         this.handler = handler;
     }
     
-    public void connect() throws IOException, TimeoutException {
+    public synchronized void connect() throws IOException, TimeoutException {
         LOG.info("Connecting to - " + this.conf.getRabbitMQHostname() + ":" + this.conf.getRabbitMQPort());
         
         ConnectionFactory factory = new ConnectionFactory();
@@ -73,14 +74,17 @@ public class RabbitMQInputServer implements Closeable {
         factory.setAutomaticRecoveryEnabled(true);
         
         this.connection = factory.newConnection();
-        this.channel = this.connection.createChannel();
+        this.requestChannel = this.connection.createChannel();
+        this.responseChannel = this.connection.createChannel();
         
         LOG.info("connected.");
         
-        this.channel.basicQos(1);
-        this.channel.queueDeclare("request", false, false, true, null);
+        this.requestChannel.basicQos(1);
+        this.requestChannel.queueDeclare("request", false, false, true, null);
         
-        this.consumer = new DefaultConsumer(this.channel) {
+        this.responseChannel.basicQos(1);
+        
+        this.consumer = new DefaultConsumer(this.requestChannel) {
             @Override
             public void handleDelivery(String consumerTag, Envelope envelope, 
                     AMQP.BasicProperties properties, byte[] body) throws IOException {
@@ -88,7 +92,7 @@ public class RabbitMQInputServer implements Closeable {
                 
                 LOG.debug("received - " + envelope.getRoutingKey() + ":" + message);
                 
-                channel.basicAck(envelope.getDeliveryTag(), false);
+                this.getChannel().basicAck(envelope.getDeliveryTag(), false);
                 
                 if(handler != null) {
                     ClassificationRequestMessage req = ClassificationRequestMessage.createInstance(message);
@@ -102,7 +106,7 @@ public class RabbitMQInputServer implements Closeable {
             @Override
             public void run() {
                 try {
-                    channel.basicConsume("request", consumer);
+                    requestChannel.basicConsume("request", consumer);
                     LOG.info("Waiting for messages");
                 } catch (IOException ex) {
                     LOG.error("Exception occurred while consuming a message", ex);
@@ -112,33 +116,44 @@ public class RabbitMQInputServer implements Closeable {
         this.workerThread.start();
     }
     
-    public void publishMessage(ClassificationResponseMessage res, String replyTo) {
-        if(!this.channel.isOpen()) {
-            throw new IllegalStateException("reader is not connected");
+    public synchronized void publishMessage(ClassificationResponseMessage res, String replyTo) {
+        if(!this.responseChannel.isOpen()) {
+            throw new IllegalStateException("responseChannel is not connected");
         }
         
         LOG.debug("return classification result - " + res.getReqId());
         try {
-            this.channel.basicPublish("", replyTo, null, res.toJson().getBytes());
+            this.responseChannel.basicPublish("", replyTo, null, res.toJson().getBytes());
         } catch (IOException ex) {
             LOG.error("Cannot publish", ex);
         }
     }
 
     @Override
-    public void close() throws IOException {
+    public synchronized void close() throws IOException {
         if(this.workerThread != null) {
+            this.workerThread.interrupt();
             this.workerThread = null;
         }
         
-        if(this.channel != null) {
-            if(this.channel.isOpen()) {
+        if(this.requestChannel != null) {
+            if(this.requestChannel.isOpen()) {
                 try {
-                    this.channel.close();
+                    this.requestChannel.close();
                 } catch (TimeoutException ex) {
                 }
             }
-            this.channel = null;
+            this.requestChannel = null;
+        }
+        
+        if(this.responseChannel != null) {
+            if(this.responseChannel.isOpen()) {
+                try {
+                    this.responseChannel.close();
+                } catch (TimeoutException ex) {
+                }
+            }
+            this.responseChannel = null;
         }
         
         if(this.connection != null) {

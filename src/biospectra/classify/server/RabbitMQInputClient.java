@@ -52,7 +52,8 @@ public class RabbitMQInputClient implements Closeable {
     private int hostId;
     private RabbitMQInputClientEventHandler handler;
     private Connection connection;
-    private Channel channel;
+    private Channel requestChannel;
+    private Channel responseChannel;
     private Consumer consumer;
     private Thread workerThread;
     private String queueName;
@@ -96,7 +97,7 @@ public class RabbitMQInputClient implements Closeable {
         this.handler.setClient(this);
     }
     
-    public void connect() throws IOException, TimeoutException {
+    public synchronized void connect() throws IOException, TimeoutException {
         ConnectionFactory factory = new ConnectionFactory();
         String hostname = this.conf.getRabbitMQHostnames().get(this.hostId);
         factory.setHost(hostname);
@@ -107,52 +108,57 @@ public class RabbitMQInputClient implements Closeable {
         factory.setAutomaticRecoveryEnabled(true);
         
         this.connection = factory.newConnection();
-        this.channel = this.connection.createChannel();
+        this.requestChannel = this.connection.createChannel();
+        this.responseChannel = this.connection.createChannel();
         
         LOG.info("reader connected - " + hostname + ":" + this.conf.getRabbitMQPort());
         
-        this.channel.basicQos(1);
-        this.queueName = this.channel.queueDeclare().getQueue();
+        this.requestChannel.basicQos(1);
         
-        this.consumer = new DefaultConsumer(this.channel) {
+        this.responseChannel.basicQos(1);
+        this.queueName = this.responseChannel.queueDeclare().getQueue();
+        
+        this.consumer = new DefaultConsumer(this.responseChannel) {
             @Override
             public void handleDelivery(String consumerTag, Envelope envelope, 
                     AMQP.BasicProperties properties, byte[] body) throws IOException {
                 String message = new String(body, "UTF-8");
 
-                channel.basicAck(envelope.getDeliveryTag(), false);
+                this.getChannel().basicAck(envelope.getDeliveryTag(), false);
 
-                if(handler != null) {
-                    ClassificationResponseMessage res = ClassificationResponseMessage.createInstance(message);
-                    ClassificationRequest ereq = null;
-                    synchronized (requestMap) {
-                        ereq = requestMap.get(res.getReqId());
-                        if(ereq != null) {
-                            requestMap.remove(res.getReqId());
+                ClassificationResponseMessage res = ClassificationResponseMessage.createInstance(message);
+                ClassificationRequest ereq = null;
+                synchronized (requestMap) {
+                    ereq = requestMap.get(res.getReqId());
+                    if(ereq != null) {
+                        requestMap.remove(res.getReqId());
+                    }
+                }
+
+                if(ereq == null) {
+                    LOG.error("cannot find matching request");
+                } else {
+                    ClassificationResponse eres = new ClassificationResponse(ereq, res);
+
+                    boolean responded = false;
+                    synchronized (ereq) {
+                        ClassificationRequest.RequestStatus status = ereq.getStatus();
+                        if(status.equals(ClassificationRequest.RequestStatus.STATUS_UNKNOWN)) {
+                            ereq.setStatus(ClassificationRequest.RequestStatus.STATUS_RESPONDED);
+                            responded = true;
                         }
+
+                        requestQueue.remove(ereq);
                     }
 
-                    if(ereq != null) {
-                        ClassificationResponse eres = new ClassificationResponse(ereq, res);
-                        
-                        boolean responded = false;
-                        synchronized (ereq) {
-                            ClassificationRequest.RequestStatus status = ereq.getStatus();
-                            if(status.equals(ClassificationRequest.RequestStatus.STATUS_UNKNOWN)) {
-                                ereq.setStatus(ClassificationRequest.RequestStatus.STATUS_RESPONDED);
-                                responded = true;
-                            }
-                            
-                            requestQueue.remove(ereq);
-                        }
-                        
-                        if(responded) {
-                            LOG.info("res : " + ereq.getReqId());
+                    if(responded) {
+                        LOG.info("res : " + ereq.getReqId());
+                        if(handler != null) {
                             handler.onSuccess(eres.getReqId(), eres.getHeader(), eres.getSequence(), eres.getResult(), eres.getType(), eres.getTaxonRank());
-                            
-                            synchronized (requestQueue) {
-                                requestQueue.notifyAll();
-                            }
+                        }
+
+                        synchronized (requestQueue) {
+                            requestQueue.notifyAll();
                         }
                     }
                 }
@@ -164,7 +170,7 @@ public class RabbitMQInputClient implements Closeable {
             @Override
             public void run() {
                 try {
-                    channel.basicConsume(queueName, consumer);
+                    responseChannel.basicConsume(queueName, consumer);
                     LOG.info("Waiting for messages");
                 } catch (IOException ex) {
                     LOG.error("Exception occurred while consuming a message", ex);
@@ -227,7 +233,11 @@ public class RabbitMQInputClient implements Closeable {
     }
     
     public void waitForTasks() throws InterruptedException {
-        if(!this.channel.isOpen()) {
+        if(!this.requestChannel.isOpen()) {
+            throw new IllegalStateException("client is not connected");
+        }
+        
+        if(!this.responseChannel.isOpen()) {
             throw new IllegalStateException("client is not connected");
         }
         
@@ -239,7 +249,11 @@ public class RabbitMQInputClient implements Closeable {
     }
     
     public boolean requestWouldBlock() {
-        if(!this.channel.isOpen()) {
+        if(!this.requestChannel.isOpen()) {
+            throw new IllegalStateException("client is not connected");
+        }
+        
+        if(!this.responseChannel.isOpen()) {
             throw new IllegalStateException("client is not connected");
         }
         
@@ -247,7 +261,11 @@ public class RabbitMQInputClient implements Closeable {
     }
     
     public void request(long reqId, String header, String sequence) throws IOException, InterruptedException {
-        if(!this.channel.isOpen()) {
+        if(!this.requestChannel.isOpen()) {
+            throw new IllegalStateException("client is not connected");
+        }
+        
+        if(!this.responseChannel.isOpen()) {
             throw new IllegalStateException("client is not connected");
         }
         
@@ -271,8 +289,10 @@ public class RabbitMQInputClient implements Closeable {
         
         AMQP.BasicProperties.Builder builder = new AMQP.BasicProperties.Builder();
         AMQP.BasicProperties prop = builder.replyTo(this.queueName).build();
-        this.channel.basicPublish("", "request", prop, reqMsg.toJson().getBytes());
         
+        synchronized (requestChannel) {
+            this.requestChannel.basicPublish("", "request", prop, reqMsg.toJson().getBytes());
+        }
     }
     
     public synchronized void reportTimeout() {
@@ -303,14 +323,24 @@ public class RabbitMQInputClient implements Closeable {
             this.timeoutThread = null;
         }
         
-        if(this.channel != null) {
-            if(this.channel.isOpen()) {
+        if(this.requestChannel != null) {
+            if(this.requestChannel.isOpen()) {
                 try {
-                    this.channel.close();
+                    this.requestChannel.close();
                 } catch (TimeoutException ex) {
                 }
             }
-            this.channel = null;
+            this.requestChannel = null;
+        }
+        
+        if(this.responseChannel != null) {
+            if(this.responseChannel.isOpen()) {
+                try {
+                    this.responseChannel.close();
+                } catch (TimeoutException ex) {
+                }
+            }
+            this.responseChannel = null;
         }
         
         if(this.connection != null) {
