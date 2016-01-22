@@ -30,6 +30,9 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -48,6 +51,7 @@ public class ClassifierClient implements Closeable {
     private List<RabbitMQInputClient> clients = new ArrayList<RabbitMQInputClient>();
     private ClientEventHandler responseHandler;
     private long reqId = 0;
+    private ScheduledExecutorService retransmitThreadPool;
     
     public static abstract class ClientEventHandler {
         public abstract void onSuccess(long reqId, String header, String sequence, List<SearchResultEntry> result, ClassificationResult.ClassificationResultType type, String taxonRank);
@@ -67,9 +71,7 @@ public class ClassifierClient implements Closeable {
                 @Override
                 public void onSuccess(long reqId, String header, String sequence, List<SearchResultEntry> result, ClassificationResult.ClassificationResultType type, String taxonRank) {
                     if(responseHandler != null) {
-                        synchronized (responseHandler) {
-                            responseHandler.onSuccess(reqId, header, sequence, result, type, taxonRank);
-                        }
+                        responseHandler.onSuccess(reqId, header, sequence, result, type, taxonRank);
                     } else {
                         LOG.error("responseHandler is not set");
                     }
@@ -81,9 +83,7 @@ public class ClassifierClient implements Closeable {
                     client.reportTimeout();
                     
                     if(responseHandler != null) {
-                        synchronized (responseHandler) {
-                            responseHandler.onTimeout(reqId, header, sequence);
-                        }
+                        responseHandler.onTimeout(reqId, header, sequence);
                     } else {
                         LOG.error("responseHandler is not set");
                     }
@@ -93,6 +93,8 @@ public class ClassifierClient implements Closeable {
             RabbitMQInputClient client = new RabbitMQInputClient(conf, i, handler);
             this.clients.add(client);
         }
+        
+        this.retransmitThreadPool = Executors.newScheduledThreadPool(4);
     }
     
     public synchronized void start() throws IOException {
@@ -186,28 +188,37 @@ public class ClassifierClient implements Closeable {
                 try {
                     json = serializer.toJson(bresult);
                     summary.report(bresult);
-                    bw.write(json + "\n");
+                    synchronized (bw) {
+                        bw.write(json + "\n");
+                    }
                 } catch (IOException ex) {
                     LOG.error("Cannot write to a file", ex);
                 }
             }
 
             @Override
-            public void onTimeout(long reqId, String header, String sequence) {
-                RabbitMQInputClient client = getNextLiveClient();
+            public void onTimeout(final long reqId, final String header, final String sequence) {
+                final RabbitMQInputClient client = getNextLiveClient();
                 if(client == null) {
                     LOG.error("no live client");
                     return;
                 }
                 
-                try {
-                    LOG.info("retransmit reqId = " + reqId);
-                    client.request(reqId, header, sequence);
-                } catch (IOException ex) {
-                    LOG.error(ex);
-                } catch (InterruptedException ex) {
-                    LOG.error(ex);
-                }
+                LOG.info("retransmit reqId = " + reqId);
+                retransmitThreadPool.schedule(new Runnable() {
+
+                    @Override
+                    public void run() {
+                        try {
+                            client.request(reqId, header, sequence);
+                        } catch (IOException ex) {
+                            LOG.error("failed to retransmit reqId = " + reqId, ex);
+                        } catch (InterruptedException ex) {
+                            LOG.error("failed to retransmit reqId = " + reqId, ex);
+                        }
+                    }
+
+                }, 0, TimeUnit.SECONDS);
             }
         };
 
@@ -219,14 +230,6 @@ public class ClassifierClient implements Closeable {
             if(client == null) {
                 LOG.error("no live client");
                 break;
-            }
-            
-            if(client.requestWouldBlock()) {
-                try {
-                    client.waitForTasks();
-                } catch (InterruptedException ex) {
-                    LOG.error(ex);
-                }
             }
 
             try {
@@ -257,6 +260,10 @@ public class ClassifierClient implements Closeable {
 
     @Override
     public synchronized void close() throws IOException {
+        if(this.retransmitThreadPool != null) {
+            this.retransmitThreadPool.shutdown();
+        }
+        
         for(RabbitMQInputClient client : this.clients) {
             client.close();
         }

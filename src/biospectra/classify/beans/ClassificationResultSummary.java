@@ -40,100 +40,100 @@ public class ClassificationResultSummary {
     }
     
     @JsonProperty("query_filename")
-    public String getQueryFilename() {
+    public synchronized String getQueryFilename() {
         return queryFilename;
     }
 
     @JsonProperty("query_filename")
-    public void setQueryFilename(String queryFilename) {
+    public synchronized void setQueryFilename(String queryFilename) {
         this.queryFilename = queryFilename;
     }
     
     @JsonProperty("start_time")
-    public Date getStartTime() {
+    public synchronized Date getStartTime() {
         return this.startTime;
     }
     
     @JsonProperty("start_time")
-    public void setStartTime(Date startTime) {
+    public synchronized void setStartTime(Date startTime) {
         this.startTime = startTime;
     }
     
     @JsonProperty("end_time")
-    public Date getEndTime() {
+    public synchronized Date getEndTime() {
         return this.endTime;
     }
     
     @JsonProperty("end_time")
-    public void setEndTime(Date endTime) {
+    public synchronized void setEndTime(Date endTime) {
         this.endTime = endTime;
     }
     
     @JsonIgnore
-    public long getTimeTaken() {
+    public synchronized long getTimeTaken() {
         return this.endTime.getTime() - this.startTime.getTime();
     }
     
     @JsonProperty("total")
-    public long getTotal() {
+    public synchronized long getTotal() {
         return total;
     }
 
     @JsonProperty("total")
-    public void setTotal(long total) {
+    public synchronized void setTotal(long total) {
         this.total = total;
     }
 
     @JsonProperty("unknown")
-    public long getUnknown() {
+    public synchronized long getUnknown() {
         return unknown;
     }
 
     @JsonProperty("unknown")
-    public void setUnknown(long unknown) {
+    public synchronized void setUnknown(long unknown) {
         this.unknown = unknown;
     }
     
     @JsonIgnore
-    public void increaseUnknown() {
+    public synchronized void increaseUnknown() {
         this.total++;
         this.unknown++;
     }
 
     @JsonProperty("vague")
-    public long getVague() {
+    public synchronized long getVague() {
         return vague;
     }
 
     @JsonProperty("vague")
-    public void setVague(long vague) {
+    public synchronized void setVague(long vague) {
         this.vague = vague;
     }
     
     @JsonIgnore
-    public void increaseVague() {
+    public synchronized void increaseVague() {
         this.total++;
         this.vague++;
     }
 
     @JsonProperty("classified")
-    public long getClassified() {
+    public synchronized long getClassified() {
         return classified;
     }
 
     @JsonProperty("classified")
-    public void setClassified(long classified) {
+    public synchronized void setClassified(long classified) {
         this.classified = classified;
     }
     
     @JsonIgnore
-    public void increaseClassified() {
+    public synchronized void increaseClassified() {
         this.total++;
         this.classified++;
     }
     
     @JsonIgnore
-    public void report(ClassificationResult bresult) {
+    public synchronized void report(ClassificationResult bresult) {
         this.total++;
         switch(bresult.getType()) {
             case VAGUE:

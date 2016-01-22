@@ -147,10 +147,8 @@ public class RabbitMQInputClient implements Closeable {
                         }
                         
                         if(responded) {
-                            synchronized (handler) {
-                                LOG.info("res : " + ereq.getReqId());
-                                handler.onSuccess(eres.getReqId(), eres.getHeader(), eres.getSequence(), eres.getResult(), eres.getType(), eres.getTaxonRank());
-                            }
+                            LOG.info("res : " + ereq.getReqId());
+                            handler.onSuccess(eres.getReqId(), eres.getHeader(), eres.getSequence(), eres.getResult(), eres.getType(), eres.getTaxonRank());
                             
                             synchronized (requestQueue) {
                                 requestQueue.notifyAll();
@@ -199,11 +197,13 @@ public class RabbitMQInputClient implements Closeable {
                                 requestQueue.remove(ereq);
                             }
                             
+                            synchronized (requestMap) {
+                                requestMap.remove(ereq.getReqId());
+                            }
+                            
                             if(timeout) {
-                                synchronized (handler) {
-                                    LOG.info("timeout : " + ereq.getReqId());
-                                    handler.onTimeout(ereq.getReqId(), ereq.getHeader(), ereq.getSequence());
-                                }
+                                LOG.info("timeout : " + ereq.getReqId());
+                                handler.onTimeout(ereq.getReqId(), ereq.getHeader(), ereq.getSequence());
                                 
                                 synchronized (requestQueue) {
                                     requestQueue.notifyAll();
