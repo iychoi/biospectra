@@ -124,10 +124,6 @@ public class RabbitMQInputServer implements Closeable {
     }
     
     public synchronized void publishMessage(ClassificationResponseMessage res, String replyTo) {
-        if(!this.responseChannel.isOpen()) {
-            throw new IllegalStateException("responseChannel is not connected");
-        }
-        
         try {
             this.responseChannel.basicPublish("", replyTo, true, true, null, res.toJson().getBytes());
         } catch (IOException ex) {
@@ -143,29 +139,23 @@ public class RabbitMQInputServer implements Closeable {
         }
         
         if(this.requestChannel != null) {
-            if(this.requestChannel.isOpen()) {
-                try {
-                    this.requestChannel.close();
-                } catch (TimeoutException ex) {
-                }
+            try {
+                this.requestChannel.close();
+            } catch (TimeoutException ex) {
             }
             this.requestChannel = null;
         }
         
         if(this.responseChannel != null) {
-            if(this.responseChannel.isOpen()) {
-                try {
-                    this.responseChannel.close();
-                } catch (TimeoutException ex) {
-                }
+            try {
+                this.responseChannel.close();
+            } catch (TimeoutException ex) {
             }
             this.responseChannel = null;
         }
         
         if(this.connection != null) {
-            if(this.connection.isOpen()) {
-                this.connection.close();
-            }
+            this.connection.close();
             this.connection = null;
         }
     }

@@ -114,7 +114,6 @@ public class RabbitMQInputClient implements Closeable {
         LOG.info("reader connected - " + hostname + ":" + this.conf.getRabbitMQPort());
         
         this.responseChannel.basicQos(10);
-        this.responseChannel.addConfirmListener(null);
         this.queueName = this.responseChannel.queueDeclare().getQueue();
         
         this.consumer = new DefaultConsumer(this.responseChannel) {
@@ -234,14 +233,6 @@ public class RabbitMQInputClient implements Closeable {
     }
     
     public void waitForTasks() throws InterruptedException {
-        if(!this.requestChannel.isOpen()) {
-            throw new IllegalStateException("client is not connected");
-        }
-        
-        if(!this.responseChannel.isOpen()) {
-            throw new IllegalStateException("client is not connected");
-        }
-        
         synchronized (this.requestQueue) {
             while(this.requestQueue.size() != 0) {
                 this.requestQueue.wait();
@@ -250,26 +241,10 @@ public class RabbitMQInputClient implements Closeable {
     }
     
     public boolean requestWouldBlock() {
-        if(!this.requestChannel.isOpen()) {
-            throw new IllegalStateException("client is not connected");
-        }
-        
-        if(!this.responseChannel.isOpen()) {
-            throw new IllegalStateException("client is not connected");
-        }
-        
         return this.requestQueue.size() == QUEUE_SIZE;
     }
     
     public void request(long reqId, String header, String sequence) throws IOException, InterruptedException {
-        if(!this.requestChannel.isOpen()) {
-            throw new IllegalStateException("client is not connected");
-        }
-        
-        if(!this.responseChannel.isOpen()) {
-            throw new IllegalStateException("client is not connected");
-        }
-        
         ClassificationRequest creq = new ClassificationRequest();
         creq.setReqId(reqId);
         creq.setHeader(header);
@@ -325,29 +300,23 @@ public class RabbitMQInputClient implements Closeable {
         }
         
         if(this.requestChannel != null) {
-            if(this.requestChannel.isOpen()) {
-                try {
-                    this.requestChannel.close();
-                } catch (TimeoutException ex) {
-                }
+            try {
+                this.requestChannel.close();
+            } catch (TimeoutException ex) {
             }
             this.requestChannel = null;
         }
         
         if(this.responseChannel != null) {
-            if(this.responseChannel.isOpen()) {
-                try {
-                    this.responseChannel.close();
-                } catch (TimeoutException ex) {
-                }
+            try {
+                this.responseChannel.close();
+            } catch (TimeoutException ex) {
             }
             this.responseChannel = null;
         }
         
         if(this.connection != null) {
-            if(this.connection.isOpen()) {
-                this.connection.close();
-            }
+            this.connection.close();
             this.connection = null;
         }
         
