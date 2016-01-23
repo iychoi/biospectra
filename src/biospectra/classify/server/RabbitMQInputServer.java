@@ -23,6 +23,7 @@ import com.rabbitmq.client.ConnectionFactory;
 import com.rabbitmq.client.Consumer;
 import com.rabbitmq.client.DefaultConsumer;
 import com.rabbitmq.client.Envelope;
+import com.rabbitmq.client.ReturnListener;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.concurrent.TimeoutException;
@@ -82,15 +83,21 @@ public class RabbitMQInputServer implements Closeable {
         this.requestChannel.basicQos(1);
         this.requestChannel.queueDeclare("request", false, false, true, null);
         
-        this.responseChannel.basicQos(1);
+        this.responseChannel.addReturnListener(new ReturnListener() {
+
+            @Override
+            public void handleReturn(int replyCode, String replyText, String exchange, String routingKey, AMQP.BasicProperties properties, byte[] body) throws IOException {
+                String message = new String(body, "UTF-8");
+                LOG.info("message not delivered to " + routingKey);
+                LOG.info(message);
+            }
+        });
         
         this.consumer = new DefaultConsumer(this.requestChannel) {
             @Override
             public void handleDelivery(String consumerTag, Envelope envelope, 
                     AMQP.BasicProperties properties, byte[] body) throws IOException {
                 String message = new String(body, "UTF-8");
-                
-                LOG.debug("received - " + envelope.getRoutingKey() + ":" + message);
                 
                 this.getChannel().basicAck(envelope.getDeliveryTag(), false);
                 
@@ -121,9 +128,8 @@ public class RabbitMQInputServer implements Closeable {
             throw new IllegalStateException("responseChannel is not connected");
         }
         
-        LOG.debug("return classification result - " + res.getReqId());
         try {
-            this.responseChannel.basicPublish("", replyTo, null, res.toJson().getBytes());
+            this.responseChannel.basicPublish("", replyTo, true, true, null, res.toJson().getBytes());
         } catch (IOException ex) {
             LOG.error("Cannot publish", ex);
         }

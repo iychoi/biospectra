@@ -113,9 +113,8 @@ public class RabbitMQInputClient implements Closeable {
         
         LOG.info("reader connected - " + hostname + ":" + this.conf.getRabbitMQPort());
         
-        this.requestChannel.basicQos(1);
-        
-        this.responseChannel.basicQos(1);
+        this.responseChannel.basicQos(10);
+        this.responseChannel.addConfirmListener(null);
         this.queueName = this.responseChannel.queueDeclare().getQueue();
         
         this.consumer = new DefaultConsumer(this.responseChannel) {
@@ -125,6 +124,8 @@ public class RabbitMQInputClient implements Closeable {
                 String message = new String(body, "UTF-8");
 
                 this.getChannel().basicAck(envelope.getDeliveryTag(), false);
+                
+                LOG.info("> " + message);
 
                 ClassificationResponseMessage res = ClassificationResponseMessage.createInstance(message);
                 ClassificationRequest ereq = null;

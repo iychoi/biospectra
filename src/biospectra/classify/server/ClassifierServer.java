@@ -90,7 +90,7 @@ public class ClassifierServer implements Closeable {
                     res.setTaxonName(result.getTaxonName());
                     res.addResult(result.getResult());
                     
-                    LOG.info("return - reqId(" + req.getReqId() + ")");
+                    LOG.info("return - reqId(" + req.getReqId() + ") to " + replyTo);
                     receiver.publishMessage(res, replyTo);
                 } catch (Exception ex) {
                     LOG.error("Exception occurred during a classification", ex);
