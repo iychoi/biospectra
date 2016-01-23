@@ -25,6 +25,8 @@ import com.rabbitmq.client.ConnectionFactory;
 import com.rabbitmq.client.Consumer;
 import com.rabbitmq.client.DefaultConsumer;
 import com.rabbitmq.client.Envelope;
+import com.rabbitmq.client.ShutdownListener;
+import com.rabbitmq.client.ShutdownSignalException;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.Date;
@@ -45,7 +47,7 @@ public class RabbitMQInputClient implements Closeable {
     private static final Log LOG = LogFactory.getLog(RabbitMQInputClient.class);
     
     private static final int QUEUE_SIZE = 4;
-    private static final long QUERY_TIMEOUT = 30*1000;
+    private static final long QUERY_TIMEOUT = 300*1000;
     private static final long TIMEOUT_MAX_COUNT = 3;
     
     private ClientConfiguration conf;
@@ -108,6 +110,14 @@ public class RabbitMQInputClient implements Closeable {
         factory.setAutomaticRecoveryEnabled(true);
         
         this.connection = factory.newConnection();
+        this.connection.addShutdownListener(new ShutdownListener(){
+
+            @Override
+            public void shutdownCompleted(ShutdownSignalException sse) {
+                LOG.error("connection shutdown", sse);
+            }
+        });
+        
         this.requestChannel = this.connection.createChannel();
         this.responseChannel = this.connection.createChannel();
         

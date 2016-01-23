@@ -24,6 +24,8 @@ import com.rabbitmq.client.Consumer;
 import com.rabbitmq.client.DefaultConsumer;
 import com.rabbitmq.client.Envelope;
 import com.rabbitmq.client.ReturnListener;
+import com.rabbitmq.client.ShutdownListener;
+import com.rabbitmq.client.ShutdownSignalException;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.concurrent.TimeoutException;
@@ -75,6 +77,14 @@ public class RabbitMQInputServer implements Closeable {
         factory.setAutomaticRecoveryEnabled(true);
         
         this.connection = factory.newConnection();
+        this.connection.addShutdownListener(new ShutdownListener(){
+
+            @Override
+            public void shutdownCompleted(ShutdownSignalException sse) {
+                LOG.error("connection shutdown", sse);
+            }
+        });
+        
         this.requestChannel = this.connection.createChannel();
         this.responseChannel = this.connection.createChannel();
         
