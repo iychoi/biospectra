@@ -125,7 +125,7 @@ public class RabbitMQInputServer implements Closeable {
     
     public synchronized void publishMessage(ClassificationResponseMessage res, String replyTo) {
         try {
-            this.responseChannel.basicPublish("", replyTo, true, true, null, res.toJson().getBytes());
+            this.responseChannel.basicPublish("", replyTo, true, false, null, res.toJson().getBytes());
         } catch (IOException ex) {
             LOG.error("Cannot publish", ex);
         }
