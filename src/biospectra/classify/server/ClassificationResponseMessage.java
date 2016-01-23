@@ -34,6 +34,7 @@ public class ClassificationResponseMessage {
     private List<SearchResultEntry> result = new ArrayList<SearchResultEntry>();
     private ClassificationResult.ClassificationResultType type;
     private String taxonRank;
+    private String taxonName;
 
     public static ClassificationResponseMessage createInstance(File file) throws IOException {
         if(file == null) {
@@ -96,6 +97,17 @@ public class ClassificationResponseMessage {
     public String getTaxonRank() {
         return taxonRank;
     }
+    
+    @JsonProperty("taxon_name")
+    public void setTaxonName(String taxonName) {
+        this.taxonName = taxonName;
+    }
+    
+    @JsonProperty("taxon_name")
+    public String getTaxonName() {
+        return taxonName;
+    }
+    
     
     @JsonIgnore
     public synchronized String toJson() throws IOException {

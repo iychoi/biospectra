@@ -54,7 +54,7 @@ public class ClassifierClient implements Closeable {
     private ScheduledExecutorService retransmitThreadPool;
     
     public static abstract class ClientEventHandler {
-        public abstract void onSuccess(long reqId, String header, String sequence, List<SearchResultEntry> result, ClassificationResult.ClassificationResultType type, String taxonRank);
+        public abstract void onSuccess(long reqId, String header, String sequence, List<SearchResultEntry> result, ClassificationResult.ClassificationResultType type, String taxonRank, String taxonName);
         public abstract void onTimeout(long reqId, String header, String sequence);
     }
     
@@ -69,9 +69,9 @@ public class ClassifierClient implements Closeable {
             
             RabbitMQInputClient.RabbitMQInputClientEventHandler handler = new RabbitMQInputClient.RabbitMQInputClientEventHandler() {
                 @Override
-                public void onSuccess(long reqId, String header, String sequence, List<SearchResultEntry> result, ClassificationResult.ClassificationResultType type, String taxonRank) {
+                public void onSuccess(long reqId, String header, String sequence, List<SearchResultEntry> result, ClassificationResult.ClassificationResultType type, String taxonRank, String taxonName) {
                     if(responseHandler != null) {
-                        responseHandler.onSuccess(reqId, header, sequence, result, type, taxonRank);
+                        responseHandler.onSuccess(reqId, header, sequence, result, type, taxonRank, taxonName);
                     } else {
                         LOG.error("responseHandler is not set");
                     }
@@ -182,8 +182,8 @@ public class ClassifierClient implements Closeable {
         this.responseHandler = new ClientEventHandler() {
             
             @Override
-            public void onSuccess(long reqId, String header, String sequence, List<SearchResultEntry> result, ClassificationResult.ClassificationResultType type, String taxonRank) {
-                ClassificationResult bresult = new ClassificationResult(header, sequence, result, type, taxonRank);
+            public void onSuccess(long reqId, String header, String sequence, List<SearchResultEntry> result, ClassificationResult.ClassificationResultType type, String taxonRank, String taxonName) {
+                ClassificationResult bresult = new ClassificationResult(header, sequence, result, type, taxonRank, taxonName);
                 String json;
                 try {
                     json = serializer.toJson(bresult);

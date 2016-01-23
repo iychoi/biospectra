@@ -31,6 +31,7 @@ public class ClassificationResponse {
     private List<SearchResultEntry> result = new ArrayList<SearchResultEntry>();
     private ClassificationResult.ClassificationResultType type;
     private String taxonRank;
+    private String taxonName;
 
     public ClassificationResponse() {
 
@@ -43,6 +44,7 @@ public class ClassificationResponse {
         this.result.addAll(resMsg.getResult());
         this.type = resMsg.getType();
         this.taxonRank = resMsg.getTaxonRank();
+        this.taxonName = resMsg.getTaxonName();
     }
 
     public void setReqId(long reqId) {
@@ -91,5 +93,13 @@ public class ClassificationResponse {
     
     public String getTaxonRank() {
         return taxonRank;
+    }
+    
+    public void setTaxonName(String taxonName) {
+        this.taxonName = taxonName;
+    }
+    
+    public String getTaxonName() {
+        return taxonName;
     }
 }

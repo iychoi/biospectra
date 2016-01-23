@@ -39,12 +39,13 @@ public class ClassificationResult {
     private List<SearchResultEntry> result = new ArrayList<SearchResultEntry>();
     private ClassificationResultType type;
     private String taxonRank;
+    private String taxonName;
             
-    public ClassificationResult(String queryHeader, String query, List<SearchResultEntry> result, ClassificationResultType type, String taxonRank) {
-        initialize(queryHeader, query, result, type, taxonRank);
+    public ClassificationResult(String queryHeader, String query, List<SearchResultEntry> result, ClassificationResultType type, String taxonRank, String taxonName) {
+        initialize(queryHeader, query, result, type, taxonRank, taxonName);
     }
     
-    private void initialize(String queryHeader, String query, List<SearchResultEntry> result, ClassificationResultType type, String taxonRank) {
+    private void initialize(String queryHeader, String query, List<SearchResultEntry> result, ClassificationResultType type, String taxonRank, String taxonName) {
         this.queryHeader = queryHeader;
         this.query = query;
         if(result != null) {
@@ -52,6 +53,7 @@ public class ClassificationResult {
         }
         this.type = type;
         this.taxonRank = taxonRank;
+        this.taxonName = taxonName;
     }
     
     @JsonProperty("query_header")
@@ -102,6 +104,16 @@ public class ClassificationResult {
     @JsonProperty("taxon_rank")
     public void setTaxonRank(String taxonRank) {
         this.taxonRank = taxonRank;
+    }
+    
+    @JsonProperty("taxon_name")
+    public String getTaxonName() {
+        return taxonName;
+    }
+
+    @JsonProperty("taxon_name")
+    public void setTaxonName(String taxonName) {
+        this.taxonName = taxonName;
     }
     
     @Override

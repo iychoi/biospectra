@@ -22,7 +22,6 @@ import biospectra.classify.beans.TaxonTreeDescription;
 import biospectra.classify.beans.Taxonomy;
 import biospectra.index.IndexConstants;
 import biospectra.lucene.KmerQueryAnalyzer;
-import biospectra.utils.JsonSerializer;
 import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
@@ -185,19 +184,20 @@ public class Classifier implements Closeable {
     
     private ClassificationResult makeClassificationResult(String header, String sequence, List<SearchResultEntry> resultArr) throws IOException {
         if(resultArr == null || resultArr.isEmpty()) {
-            return new ClassificationResult(header, sequence, null, ClassificationResult.ClassificationResultType.UNKNOWN, "unknown");
+            return new ClassificationResult(header, sequence, null, ClassificationResult.ClassificationResultType.UNKNOWN, "unknown", "");
         } else if(resultArr.size() == 1) {
             SearchResultEntry entry = resultArr.get(0);
             String taxonHierarchy = entry.getTaxonHierarchy();
             if(taxonHierarchy != null && !taxonHierarchy.isEmpty()) {
                 TaxonTreeDescription desc = TaxonTreeDescription.createInstance(taxonHierarchy);
-                String rank = desc.getLowestRank();
-                if(rank == null || rank.isEmpty()) {
-                    rank = "unknown";
+                Taxonomy tax = desc.getLowestClassifiableTaxonomy();
+                if(tax != null) {
+                    return new ClassificationResult(header, sequence, resultArr, ClassificationResult.ClassificationResultType.CLASSIFIED, tax.getRank(), tax.getName());
+                } else {
+                    return new ClassificationResult(header, sequence, resultArr, ClassificationResult.ClassificationResultType.CLASSIFIED, "unknown", "");
                 }
-                return new ClassificationResult(header, sequence, resultArr, ClassificationResult.ClassificationResultType.CLASSIFIED, rank);
             } else {
-                return new ClassificationResult(header, sequence, resultArr, ClassificationResult.ClassificationResultType.CLASSIFIED, "unknown");
+                return new ClassificationResult(header, sequence, resultArr, ClassificationResult.ClassificationResultType.CLASSIFIED, "unknown", "");
             }
         } else {
             List<TaxonTreeDescription> descs = new ArrayList<TaxonTreeDescription>();
@@ -208,21 +208,27 @@ public class Classifier implements Closeable {
                     descs.add(desc);
                 } else {
                     // quick fail
-                    return new ClassificationResult(header, sequence, resultArr, ClassificationResult.ClassificationResultType.VAGUE, "unknown");
+                    return new ClassificationResult(header, sequence, resultArr, ClassificationResult.ClassificationResultType.VAGUE, "unknown", "");
                 }
             }
             
             String rank = "";
             TaxonTreeDescription desc1 = descs.get(0);
             boolean classified = false;
-            for(int idx=0;idx<desc1.getTaxonomyTree().size();idx++) {
-                Taxonomy tax = desc1.getTaxonomyTree().get(idx);
+            
+            List<Taxonomy> tree1 = desc1.getClassifiableTaxonomyTree();
+            
+            Taxonomy classifiedTax = null;
+            for(int idx=0;idx<tree1.size();idx++) {
+                Taxonomy tax = tree1.get(idx);
             
                 boolean foundCommonTaxRank = true;
                 for(int j=1;j<descs.size();j++) {
                     TaxonTreeDescription desc_target = descs.get(j);
+                    List<Taxonomy> desc_tree = desc_target.getClassifiableTaxonomyTree();
+                    
                     boolean found = false;
-                    for(Taxonomy tax_target : desc_target.getTaxonomyTree()) {
+                    for(Taxonomy tax_target : desc_tree) {
                         if(tax_target.getTaxid() == tax.getTaxid()) {
                             // found the same id
                             found = true;
@@ -237,21 +243,20 @@ public class Classifier implements Closeable {
                 }
                 
                 if(foundCommonTaxRank) {
-                    rank = desc1.getLowestRank(idx);
-                    if(rank.equalsIgnoreCase("species") || rank.equalsIgnoreCase("species group") || rank.equalsIgnoreCase("genus")) {
-                        classified = true;
-                    }
+                    classified = true;
+                    classifiedTax = tax;
+                    break;
                 }
             }
             
-            if(rank == null || rank.isEmpty()) {
-                rank = "unknown";
-            }
-            
             if(classified) {
-                return new ClassificationResult(header, sequence, resultArr, ClassificationResult.ClassificationResultType.CLASSIFIED, rank);
+                if(classifiedTax != null) {
+                    return new ClassificationResult(header, sequence, resultArr, ClassificationResult.ClassificationResultType.CLASSIFIED, classifiedTax.getRank(), classifiedTax.getName());
+                } else {
+                    return new ClassificationResult(header, sequence, resultArr, ClassificationResult.ClassificationResultType.CLASSIFIED, "unknown", "");
+                }
             } else {
-                return new ClassificationResult(header, sequence, resultArr, ClassificationResult.ClassificationResultType.VAGUE, "unknown");
+                return new ClassificationResult(header, sequence, resultArr, ClassificationResult.ClassificationResultType.VAGUE, "unknown", "");
             }
         }
     }

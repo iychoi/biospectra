@@ -74,7 +74,7 @@ public class RabbitMQInputClient implements Closeable {
             return this.client;
         }
         
-        public abstract void onSuccess(long reqId, String header, String sequence, List<SearchResultEntry> result, ClassificationResult.ClassificationResultType type, String taxonRank);
+        public abstract void onSuccess(long reqId, String header, String sequence, List<SearchResultEntry> result, ClassificationResult.ClassificationResultType type, String taxonRank, String taxonName);
         public abstract void onTimeout(long reqId, String header, String sequence);
     }
     
@@ -154,7 +154,7 @@ public class RabbitMQInputClient implements Closeable {
                     if(responded) {
                         LOG.info("res : " + ereq.getReqId());
                         if(handler != null) {
-                            handler.onSuccess(eres.getReqId(), eres.getHeader(), eres.getSequence(), eres.getResult(), eres.getType(), eres.getTaxonRank());
+                            handler.onSuccess(eres.getReqId(), eres.getHeader(), eres.getSequence(), eres.getResult(), eres.getType(), eres.getTaxonRank(), eres.getTaxonName());
                         }
 
                         synchronized (requestQueue) {

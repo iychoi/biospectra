@@ -87,6 +87,7 @@ public class ClassifierServer implements Closeable {
                     res.setReqId(req.getReqId());
                     res.setType(result.getType());
                     res.setTaxonRank(result.getTaxonRank());
+                    res.setTaxonName(result.getTaxonName());
                     res.addResult(result.getResult());
                     
                     LOG.info("return - reqId(" + req.getReqId() + ")");

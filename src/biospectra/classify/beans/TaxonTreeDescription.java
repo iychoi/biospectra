@@ -67,37 +67,33 @@ public class TaxonTreeDescription {
     }
 
     @JsonIgnore
-    public String getLowestRank() {
+    public Taxonomy getLowestClassifiableTaxonomy() {
         if(this.tree.isEmpty()) {
-            return "";
+            return null;
         } else {
             for(Taxonomy tax : this.tree) {
                 String rank = tax.getRank();
                 if(rank != null && !rank.isEmpty() && !rank.equalsIgnoreCase("no rank")) {
-                    return rank;
+                    return tax;
                 }
             }
-            return "";
+            return null;
         }
     }
     
     @JsonIgnore
-    public String getLowestRank(int idx) {
-        if(idx <= 0) {
-            return getLowestRank();
-        }
-        
+    public List<Taxonomy> getClassifiableTaxonomyTree() {
+        ArrayList<Taxonomy> list = new ArrayList<Taxonomy>();
         if(this.tree.isEmpty()) {
-            return "";
+            return list;
         } else {
-            for(int i=idx;i<this.tree.size();i++) {
-                Taxonomy tax = this.tree.get(i);
+            for(Taxonomy tax : this.tree) {
                 String rank = tax.getRank();
                 if(rank != null && !rank.isEmpty() && !rank.equalsIgnoreCase("no rank")) {
-                    return rank;
+                    list.add(tax);
                 }
             }
-            return "";
+            return list;
         }
     }
     
