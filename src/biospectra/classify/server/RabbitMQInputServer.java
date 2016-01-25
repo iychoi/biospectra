@@ -74,6 +74,8 @@ public class RabbitMQInputServer implements Closeable {
         factory.setUsername(this.conf.getRabbitMQUserId());
         factory.setPassword(this.conf.getRabbitMQUserPwd());
         
+        factory.setRequestedHeartbeat(60);
+        
         factory.setAutomaticRecoveryEnabled(true);
         
         this.connection = factory.newConnection();

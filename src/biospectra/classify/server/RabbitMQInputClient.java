@@ -64,6 +64,7 @@ public class RabbitMQInputClient implements Closeable {
     private Map<Long, ClassificationRequest> requestMap = new HashMap<Long, ClassificationRequest>();
     private Thread timeoutThread;
     private int timeout;
+    private ShutdownListener shutdownListener;
 
     public static abstract class RabbitMQInputClientEventHandler {
         private RabbitMQInputClient client;
@@ -107,16 +108,20 @@ public class RabbitMQInputClient implements Closeable {
         factory.setUsername(this.conf.getRabbitMQUserId());
         factory.setPassword(this.conf.getRabbitMQUserPwd());
         
+        factory.setRequestedHeartbeat(60);
+        
         factory.setAutomaticRecoveryEnabled(true);
         
         this.connection = factory.newConnection();
-        this.connection.addShutdownListener(new ShutdownListener(){
+        this.shutdownListener = new ShutdownListener(){
 
             @Override
             public void shutdownCompleted(ShutdownSignalException sse) {
                 LOG.error("connection shutdown", sse);
             }
-        });
+        };
+        
+        this.connection.addShutdownListener(this.shutdownListener);
         
         this.requestChannel = this.connection.createChannel();
         this.responseChannel = this.connection.createChannel();
@@ -324,11 +329,14 @@ public class RabbitMQInputClient implements Closeable {
             }
             this.responseChannel = null;
         }
-        
+
+        this.connection.removeShutdownListener(this.shutdownListener);
         if(this.connection != null) {
             this.connection.close();
             this.connection = null;
         }
+        
+        this.shutdownListener = null;
         
         this.requestQueue.clear();
         this.requestMap.clear();
