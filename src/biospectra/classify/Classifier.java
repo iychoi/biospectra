@@ -31,6 +31,8 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.lucene.analysis.CachingTokenFilter;
 import org.apache.lucene.analysis.TokenStream;
+import org.apache.lucene.analysis.tokenattributes.CharTermAttribute;
+import org.apache.lucene.analysis.tokenattributes.OffsetAttribute;
 import org.apache.lucene.analysis.tokenattributes.TermToBytesRefAttribute;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.index.DirectoryReader;
@@ -104,7 +106,7 @@ public class Classifier implements Closeable {
         BooleanQuery.setMaxClauseCount(10000);
     }
     
-    protected final BooleanQuery create2KgramFieldQuery(KmerQueryAnalyzer analyzer, String field, String queryText) {
+    protected final BooleanQuery createPairProxQuery(KmerQueryAnalyzer analyzer, String field, String queryText) {
         try (TokenStream source = analyzer.tokenStream(field, queryText);
             CachingTokenFilter stream = new CachingTokenFilter(source)) {
 
@@ -113,7 +115,7 @@ public class Classifier implements Closeable {
             if (termAtt == null) {
                 return null;
             }
-
+            
             // phase 1: read through the stream and assess the situation:
             // counting the number of tokens/positions and marking if we have any synonyms.
             int numTokens = 0;
@@ -132,14 +134,18 @@ public class Classifier implements Closeable {
                 return null;
             } else {
                 Term termArr[] = new Term[2];
+                long offsetArr[] = new long[2];
                 for(int i=0;i<2;i++) {
                     termArr[i] = null;
+                    offsetArr[i] = 0;
                 }
+                
 
                 BooleanQuery.Builder q = new BooleanQuery.Builder();
                 q.setDisableCoord(false);
                 
                 TermToBytesRefAttribute termAttB = stream.getAttribute(TermToBytesRefAttribute.class);
+                OffsetAttribute offsetAtt = stream.getAttribute(OffsetAttribute.class);
 
                 stream.reset();
                 int count = 0;
@@ -147,15 +153,21 @@ public class Classifier implements Closeable {
                     Term t = new Term(field, BytesRef.deepCopyOf(termAttB.getBytesRef()));
                     if(count % 2 == 0) {
                         termArr[0] = t;
+                        offsetArr[0] = offsetAtt.startOffset();
                     } else {
                         termArr[1] = t;
+                        offsetArr[1] = offsetAtt.startOffset();
                         
-                        PhraseQuery.Builder pq = new PhraseQuery.Builder();
-                        pq.setSlop(this.kmerSkips * 2);
-                        pq.add(termArr[0]);
-                        pq.add(termArr[1]);
+                        long offsetDiff = offsetArr[1] - offsetArr[0];
+                        if(offsetDiff > 0) {
+                            PhraseQuery.Builder pq = new PhraseQuery.Builder();
                         
-                        q.add(pq.build(), BooleanClause.Occur.SHOULD);
+                            pq.setSlop((int) (offsetDiff) + 1);
+                            pq.add(termArr[0]);
+                            pq.add(termArr[1]);
+
+                            q.add(pq.build(), BooleanClause.Occur.SHOULD);
+                        }
                         
                         termArr[0] = null;
                         termArr[1] = null;
@@ -172,7 +184,7 @@ public class Classifier implements Closeable {
     }
     
     protected BooleanQuery createQuery(KmerQueryAnalyzer analyzer, String field, String queryText, double minShouldMatch) {
-        BooleanQuery proximityQuery = create2KgramFieldQuery(analyzer, field, queryText);
+        BooleanQuery proximityQuery = createPairProxQuery(analyzer, field, queryText);
         BooleanQuery.Builder booleanQueryBuilder = new BooleanQuery.Builder();
         booleanQueryBuilder.setDisableCoord(proximityQuery.isCoordDisabled());
         booleanQueryBuilder.setMinimumNumberShouldMatch((int) (minShouldMatch * proximityQuery.clauses().size()));
