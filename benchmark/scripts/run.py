@@ -28,9 +28,10 @@ def createConfig(k, qalg):
 
 def createIndex(k, config):
     print "Creating an index -", k
-    cmd = "../../biospectra_indexing.sh "
-    cmd += "-j " + config
-    cmd += "-r " + "../../../mount/bacteria_ncbi_reference"
+    cmd = "cd ../../; "
+    cmd += "./biospectra_indexing.sh "
+    cmd += "-j " + config + " "
+    cmd += "-r " + "../mount/bacteria_ncbi_reference"
 
     start_time = datetime.now()
 
@@ -43,10 +44,11 @@ def createIndex(k, config):
 
 def classify(k, qalg, config):
     print "Classify - ", k
-    cmd = "../../biospectra_local_classify.sh "
-    cmd += "-j " + config
-    cmd += "-in " + "../../../mount/simHC.20.500 "
-    cmd += "-out " + "../../../mount/simHC.20.500_" + str(k) + "_" + qalg
+    cmd = "cd ../../;"
+    cmd += "./biospectra_local_classify.sh "
+    cmd += "-j " + config + " "
+    cmd += "-in " + "../mount/simHC.20.500 "
+    cmd += "-out " + "../mount/simHC.20.500_" + str(k) + "_" + qalg
 
     start_time = datetime.now()
 
@@ -72,8 +74,10 @@ def cleanupIndex(config):
 
 def go(k):
     create_index = True
+    created_config = []
     for qalg in QUERY_ALGS:
         config = createConfig(k, qalg)
+	created_config.append(config)
         if create_index:
             createIndex(k, config)
             create_index = False
@@ -83,7 +87,7 @@ def go(k):
     """
     Clean Up
     """
-    for qalg in QUERY_ALGS:
+    for config in created_config:
         cleanupIndex(config)
         cleanupConfig(config)
 
