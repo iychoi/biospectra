@@ -77,10 +77,13 @@ def _parseUnknown(path):
     f.close()
 
 def _parse(path):
-    print "parsing", path
-    _parseClassified(path);
-    _parseVague(path);
-    _parseUnknown(path);
+    if path.endswith(".result"):
+        print "parsing", path
+        _parseClassified(path);
+        _parseVague(path);
+        _parseUnknown(path);
+        return True
+    return False
 
 def parse(path):
     if os.path.isdir(path):
