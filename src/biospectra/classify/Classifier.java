@@ -31,7 +31,6 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.lucene.analysis.CachingTokenFilter;
 import org.apache.lucene.analysis.TokenStream;
-import org.apache.lucene.analysis.tokenattributes.CharTermAttribute;
 import org.apache.lucene.analysis.tokenattributes.OffsetAttribute;
 import org.apache.lucene.analysis.tokenattributes.TermToBytesRefAttribute;
 import org.apache.lucene.document.Document;
@@ -43,6 +42,7 @@ import org.apache.lucene.search.BooleanQuery;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.PhraseQuery;
 import org.apache.lucene.search.ScoreDoc;
+import org.apache.lucene.search.TermQuery;
 import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.search.TopScoreDocCollector;
 import org.apache.lucene.search.similarities.Similarity;
@@ -65,6 +65,7 @@ public class Classifier implements Closeable {
     private double minShouldMatch;
     private int kmerSize;
     private int kmerSkips;
+    private QueryGenerationAlgorithm queryGenerationAlgorithm;
     
     public Classifier(Configuration conf) throws Exception {
         if(conf == null) {
@@ -83,10 +84,10 @@ public class Classifier implements Closeable {
             throw new IllegalArgumentException("kmerSkips must be larger than 0");
         }
         
-        initialize(new File(conf.getIndexPath()), conf.getKmerSize(), conf.getKmerSkips(), conf.getQueryMinShouldMatch(), conf.getScoringAlgorithmObject());
+        initialize(new File(conf.getIndexPath()), conf.getKmerSize(), conf.getKmerSkips(), conf.getQueryMinShouldMatch(), conf.getQueryGenerationAlgorithm(), conf.getScoringAlgorithmObject());
     }
     
-    private void initialize(File indexPath, int kmerSize, int kmerSkips, double minShouldMatch, Similarity similarity) throws Exception {
+    private void initialize(File indexPath, int kmerSize, int kmerSkips, double minShouldMatch, QueryGenerationAlgorithm queryGenerationAlgorithm, Similarity similarity) throws Exception {
         if(!indexPath.exists() || !indexPath.isDirectory()) {
             throw new IllegalArgumentException("indexPath is not a directory or does not exist");
         }
@@ -102,11 +103,102 @@ public class Classifier implements Closeable {
             this.indexSearcher.setSimilarity(similarity);
         }
         this.minShouldMatch = minShouldMatch;
+        this.queryGenerationAlgorithm = queryGenerationAlgorithm;
         
         BooleanQuery.setMaxClauseCount(10000);
     }
+
+    private void createNaiveKmerQueryClauses(BooleanQuery.Builder builder, String field, CachingTokenFilter stream, TermToBytesRefAttribute termAtt, OffsetAttribute offsetAtt) throws IOException {
+        while (stream.incrementToken()) {
+            Term t = new Term(field, BytesRef.deepCopyOf(termAtt.getBytesRef()));
+            builder.add(new TermQuery(t), BooleanClause.Occur.SHOULD);
+        }
+    }
     
-    protected final BooleanQuery createPairProxQuery(KmerQueryAnalyzer analyzer, String field, String queryText) {
+    private void createChainProximityQueryClauses(BooleanQuery.Builder builder, String field, CachingTokenFilter stream, TermToBytesRefAttribute termAtt, OffsetAttribute offsetAtt) throws IOException {
+        Term termArr[] = new Term[2];
+        long offsetArr[] = new long[2];
+        for(int i=0;i<2;i++) {
+            termArr[i] = null;
+            offsetArr[i] = 0;
+        }
+
+        while (stream.incrementToken()) {
+            Term t = new Term(field, BytesRef.deepCopyOf(termAtt.getBytesRef()));
+            if(termArr[0] == null) {
+                termArr[0] = t;
+                offsetArr[0] = offsetAtt.startOffset();
+            } else if(termArr[1] == null) {
+                termArr[1] = t;
+                offsetArr[1] = offsetAtt.startOffset();
+            } else {
+                // shift
+                termArr[0] = termArr[1];
+                offsetArr[0] = offsetArr[1];
+                // fill
+                termArr[1] = t;
+                offsetArr[1] = offsetAtt.startOffset();
+            }
+            
+            long offsetDiff = offsetArr[1] - offsetArr[0];
+            if(offsetDiff > 0) {
+                PhraseQuery.Builder pq = new PhraseQuery.Builder();
+
+                pq.setSlop((int) (offsetDiff) + 1);
+                pq.add(termArr[0]);
+                pq.add(termArr[1]);
+
+                builder.add(pq.build(), BooleanClause.Occur.SHOULD);
+            }
+
+            termArr[0] = null;
+            termArr[1] = null;
+        }
+    }
+
+    private void createPairedProximityQueryClauses(BooleanQuery.Builder builder, String field, CachingTokenFilter stream, TermToBytesRefAttribute termAtt, OffsetAttribute offsetAtt) throws IOException {
+        Term termArr[] = new Term[2];
+        long offsetArr[] = new long[2];
+        for(int i=0;i<2;i++) {
+            termArr[i] = null;
+            offsetArr[i] = 0;
+        }
+
+        int count = 0;
+        while (stream.incrementToken()) {
+            Term t = new Term(field, BytesRef.deepCopyOf(termAtt.getBytesRef()));
+            if(count % 2 == 0) {
+                termArr[0] = t;
+                offsetArr[0] = offsetAtt.startOffset();
+            } else {
+                termArr[1] = t;
+                offsetArr[1] = offsetAtt.startOffset();
+
+                long offsetDiff = offsetArr[1] - offsetArr[0];
+                if(offsetDiff > 0) {
+                    PhraseQuery.Builder pq = new PhraseQuery.Builder();
+
+                    pq.setSlop((int) (offsetDiff) + 1);
+                    pq.add(termArr[0]);
+                    pq.add(termArr[1]);
+
+                    builder.add(pq.build(), BooleanClause.Occur.SHOULD);
+                }
+
+                termArr[0] = null;
+                termArr[1] = null;
+            }
+
+            count++;
+        }
+        
+        if(termArr[0] != null) {
+            builder.add(new TermQuery(termArr[0]), BooleanClause.Occur.SHOULD);
+            termArr[0] = null;
+        }
+    }
+    
+    protected BooleanQuery createQueryClauses(KmerQueryAnalyzer analyzer, String field, String queryText, QueryGenerationAlgorithm queryGenerationAlgorithm) {
         try (TokenStream source = analyzer.tokenStream(field, queryText);
             CachingTokenFilter stream = new CachingTokenFilter(source)) {
 
@@ -133,14 +225,6 @@ public class Classifier implements Closeable {
                 // single term
                 return null;
             } else {
-                Term termArr[] = new Term[2];
-                long offsetArr[] = new long[2];
-                for(int i=0;i<2;i++) {
-                    termArr[i] = null;
-                    offsetArr[i] = 0;
-                }
-                
-
                 BooleanQuery.Builder q = new BooleanQuery.Builder();
                 q.setDisableCoord(false);
                 
@@ -148,32 +232,13 @@ public class Classifier implements Closeable {
                 OffsetAttribute offsetAtt = stream.getAttribute(OffsetAttribute.class);
 
                 stream.reset();
-                int count = 0;
-                while (stream.incrementToken()) {
-                    Term t = new Term(field, BytesRef.deepCopyOf(termAttB.getBytesRef()));
-                    if(count % 2 == 0) {
-                        termArr[0] = t;
-                        offsetArr[0] = offsetAtt.startOffset();
-                    } else {
-                        termArr[1] = t;
-                        offsetArr[1] = offsetAtt.startOffset();
-                        
-                        long offsetDiff = offsetArr[1] - offsetArr[0];
-                        if(offsetDiff > 0) {
-                            PhraseQuery.Builder pq = new PhraseQuery.Builder();
-                        
-                            pq.setSlop((int) (offsetDiff) + 1);
-                            pq.add(termArr[0]);
-                            pq.add(termArr[1]);
-
-                            q.add(pq.build(), BooleanClause.Occur.SHOULD);
-                        }
-                        
-                        termArr[0] = null;
-                        termArr[1] = null;
-                    }
-                    
-                    count++;
+                
+                if (queryGenerationAlgorithm.equals(QueryGenerationAlgorithm.NAIVE_KMER)) {
+                    createNaiveKmerQueryClauses(q, field, stream, termAttB, offsetAtt);
+                } else if(queryGenerationAlgorithm.equals(QueryGenerationAlgorithm.CHAIN_PROXIMITY)) {
+                    createChainProximityQueryClauses(q, field, stream, termAttB, offsetAtt);
+                } else if(queryGenerationAlgorithm.equals(QueryGenerationAlgorithm.PAIRED_PROXIMITY)) {
+                    createPairedProximityQueryClauses(q, field, stream, termAttB, offsetAtt);
                 }
 
                 return q.build();
@@ -183,12 +248,12 @@ public class Classifier implements Closeable {
         }
     }
     
-    protected BooleanQuery createQuery(KmerQueryAnalyzer analyzer, String field, String queryText, double minShouldMatch) {
-        BooleanQuery proximityQuery = createPairProxQuery(analyzer, field, queryText);
+    protected BooleanQuery createQuery(KmerQueryAnalyzer analyzer, String field, String queryText, double minShouldMatch, QueryGenerationAlgorithm queryGenerationAlgorithm) {
+        BooleanQuery queryClauses = createQueryClauses(analyzer, field, queryText, queryGenerationAlgorithm);
         BooleanQuery.Builder booleanQueryBuilder = new BooleanQuery.Builder();
-        booleanQueryBuilder.setDisableCoord(proximityQuery.isCoordDisabled());
-        booleanQueryBuilder.setMinimumNumberShouldMatch((int) (minShouldMatch * proximityQuery.clauses().size()));
-        for (BooleanClause clause : proximityQuery) {
+        booleanQueryBuilder.setDisableCoord(queryClauses.isCoordDisabled());
+        booleanQueryBuilder.setMinimumNumberShouldMatch((int) (minShouldMatch * queryClauses.clauses().size()));
+        for (BooleanClause clause : queryClauses) {
             booleanQueryBuilder.add(clause);
         }
         return booleanQueryBuilder.build();
@@ -280,7 +345,7 @@ public class Classifier implements Closeable {
         
         ClassificationResult classificationResult = null;
         
-        BooleanQuery q = createQuery(this.queryAnalyzer, IndexConstants.FIELD_SEQUENCE, sequence, this.minShouldMatch);
+        BooleanQuery q = createQuery(this.queryAnalyzer, IndexConstants.FIELD_SEQUENCE, sequence, this.minShouldMatch, this.queryGenerationAlgorithm);
         
         int hitsPerPage = 10;
         TopScoreDocCollector collector = TopScoreDocCollector.create(hitsPerPage);

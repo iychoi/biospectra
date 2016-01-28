@@ -15,6 +15,7 @@
  */
 package biospectra;
 
+import biospectra.classify.QueryGenerationAlgorithm;
 import biospectra.utils.JsonSerializer;
 import java.io.File;
 import java.io.IOException;
@@ -38,6 +39,7 @@ public class Configuration {
     public static final double DEFAULT_QUERY_TERMS_MIN_SHOULD_MATCH = 0.5;
     public static final int DEFAULT_WORKER_THREADS = 4;
     public static final String DEFAULT_SCORING_ALGORITHM = "default";
+    public static final QueryGenerationAlgorithm DEFAULT_QUERY_GENERATION_ALGORITHM = QueryGenerationAlgorithm.PAIRED_PROXIMITY;
     
     private String indexPath;
     private int kmerSize = DEFAULT_KMERSIZE;
@@ -45,7 +47,8 @@ public class Configuration {
     private double queryMinShouldMatch = DEFAULT_QUERY_TERMS_MIN_SHOULD_MATCH;
     private int workerThreads = DEFAULT_WORKER_THREADS;
     private String scoringAlgorithm = DEFAULT_SCORING_ALGORITHM;
-
+    private QueryGenerationAlgorithm queryAlgorithm;
+    
     public static Configuration createInstance(File file) throws IOException {
         if(file == null) {
             throw new IllegalArgumentException("file is null");
@@ -116,6 +119,16 @@ public class Configuration {
     @JsonProperty("worker_threads")
     public void setWorkerThreads(int workerThreads) {
         this.workerThreads = workerThreads;
+    }
+    
+    @JsonProperty("query_algorithm")
+    public QueryGenerationAlgorithm getQueryGenerationAlgorithm() {
+        return queryAlgorithm;
+    }
+    
+    @JsonProperty("query_algorithm")
+    public void setQueryGenerationAlgorithm(QueryGenerationAlgorithm queryAlgorithm) {
+        this.queryAlgorithm = queryAlgorithm;
     }
     
     @JsonProperty("scoring_algorithm")
