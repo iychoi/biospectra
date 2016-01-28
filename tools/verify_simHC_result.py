@@ -5,18 +5,6 @@ import os.path
 import sys
 import json
 
-def _extractGenome(header):
-    headers = header.split('|')
-    genome = headers[4].strip()
-    pos = genome.find(",")        
-    if pos > 0:
-        genome = genome[:pos]
-
-    pos = genome.find(" chromosome")
-    if pos > 0:
-        genome = genome[:pos]
-    return genome
-
 def _parseClassified(path):
     res_dict = {}
     f = open(path)
@@ -27,11 +15,11 @@ def _parseClassified(path):
         query_header = j['query_header']
         result = j['result']
         ctype = j['type']
+        taxon_rank = j['taxon_rank']
+        taxon_name = j['taxon_name']
 
         if ctype == "CLASSIFIED":
-            r = result[0]
-            #print "> " + ctype + "\t" + r['header'] + "\t" + str(r['score'])
-            genome = _extractGenome(r['header'])
+            genome = taxon_name + "(" + taxon_rank + ")"
             if genome in res_dict:
                 res_dict[genome] = res_dict[genome] + 1
             else:
