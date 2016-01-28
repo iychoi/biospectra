@@ -84,8 +84,8 @@ def _parse(path):
 
 def parse(path):
     if os.path.isdir(path):
-        for p in path:
-            _parse(p)
+        for p in os.listdir(path):
+            parse(os.path.join(path, p))
     else:
         _parse(path)
 
