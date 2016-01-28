@@ -1,0 +1,9 @@
+{
+    "index_path":"../mount/bacteria_ncbi_index_{size}",
+    "kmer_size":{size},
+    "kmer_skips":0,
+    "query_term_min_should_match":0.5,
+    "worker_threads":4,
+    "query_algorithm":"{qalg}",
+    "scoring_algorithm":"tfidf"
+}
