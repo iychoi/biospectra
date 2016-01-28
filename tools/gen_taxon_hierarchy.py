@@ -14,7 +14,9 @@ fasta_extensions = [
     ".ffn.gz",
     ".ffn",
     ".fna.gz",
-    ".fna"
+    ".fna",
+    ".fasta",
+    ".fasta.gz"
 ]
 
 
