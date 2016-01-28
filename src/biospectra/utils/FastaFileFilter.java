@@ -32,7 +32,9 @@ public class FastaFileFilter implements FileFilter {
         ".ffn.gz",
         ".ffn",
         ".fna.gz",
-        ".fna"
+        ".fna",
+        ".fasta",
+        ".fasta.gz"
     };
     
     @Override
