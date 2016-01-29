@@ -80,8 +80,8 @@ public class Classifier implements Closeable {
             throw new IllegalArgumentException("kmerSize must be larger than 0");
         }
         
-        if(conf.getKmerSkips() <= 0) {
-            throw new IllegalArgumentException("kmerSkips must be larger than 0");
+        if(conf.getKmerSkips() < 0) {
+            throw new IllegalArgumentException("kmerSkips must be equal or larger than 0");
         }
         
         initialize(new File(conf.getIndexPath()), conf.getKmerSize(), conf.getKmerSkips(), conf.getQueryMinShouldMatch(), conf.getQueryGenerationAlgorithm(), conf.getScoringAlgorithmObject());
