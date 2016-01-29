@@ -101,7 +101,7 @@ public class Indexer implements Closeable {
         this.workerThreads = workerThreads;
         
         // use 256MB for ram buffer
-        config.setRAMBufferSizeMB(256);
+        config.setRAMBufferSizeMB(128);
         config.setOpenMode(IndexWriterConfig.OpenMode.CREATE_OR_APPEND);
         this.indexWriter = new IndexWriter(dir, config);
         
