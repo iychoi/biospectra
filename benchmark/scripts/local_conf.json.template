@@ -1,9 +1,9 @@
 {
-    "index_path":"../mount/bacteria_ncbi_index_bnch_{size}",
+    "index_path":"./index/bacteria_ncbi_index_bnch_{size}",
     "kmer_size":{size},
     "kmer_skips":0,
     "query_term_min_should_match":0.5,
-    "worker_threads":4,
+    "worker_threads":24,
     "query_algorithm":"{qalg}",
     "scoring_algorithm":"tfidf"
 }

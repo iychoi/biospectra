@@ -31,7 +31,7 @@ def createIndex(k, config):
     cmd = "cd ../../; "
     cmd += "./biospectra_indexing.sh "
     cmd += "-j " + config + " "
-    cmd += "-r " + "../mount/bacteria_ncbi_reference"
+    cmd += "-r " + "benchmark/bacteria_ncbi_reference"
 
     start_time = datetime.now()
 
@@ -43,12 +43,12 @@ def createIndex(k, config):
     print "Duration: {}".format(duration)
 
 def classify(k, qalg, config):
-    print "Classify - ", k
+    print "Classify -", k, "with", qalg
     cmd = "cd ../../;"
     cmd += "./biospectra_local_classify.sh "
     cmd += "-j " + config + " "
-    cmd += "-in " + "../mount/simHC.20.500 "
-    cmd += "-out " + "../mount/simHC.20.500_" + str(k) + "_" + qalg
+    cmd += "-in " + "benchmark/simHC.20.500 "
+    cmd += "-out " + "benchmark/simHC.20.500_" + str(k) + "_" + qalg
 
     start_time = datetime.now()
 
@@ -72,6 +72,31 @@ def cleanupIndex(config):
                 print "removing -", indexPath
                 shutil.rmtree(indexPath)
 
+def _sumSize(path):
+    size = os.path.getsize(path)
+    print path, "=", size, "bytes"
+    return size
+
+def sumSize(path):
+    sizeTotal = 0;
+    if os.path.isdir(path):
+        for p in os.listdir(path):
+            sizeTotal += sumSize(os.path.join(path, p))
+    else:
+        sizeTotal += _sumSize(path)
+
+    return sizeTotal
+
+def calcIndexSize(config):
+    if os.path.exists(config):
+        with open(config) as configFile:
+            conf = json.load(configFile)
+            indexPath = "../../" + conf["index_path"]
+            if os.path.exists(indexPath):
+                return sumSize(indexPath)
+
+    return 0
+
 def go(k):
     create_index = True
     created_config = []
@@ -80,6 +105,13 @@ def go(k):
 	created_config.append(config)
         if create_index:
             createIndex(k, config)
+            sizeTotal = calcIndexSize(config)
+            print "index size"
+            print "total size", "=", sizeTotal, "bytes"
+            print "total size", "=", sizeTotal/1024, "kilobytes"
+            print "total size", "=", sizeTotal/1024/1024, "megabytes"
+            print "total size", "=", sizeTotal/1024/1024/1024, "gigabytes"
+
             create_index = False
     
         classify(k, qalg, config)
