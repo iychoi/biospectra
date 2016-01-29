@@ -78,10 +78,10 @@ public class Indexer implements Closeable {
             throw new IllegalArgumentException("workerThreads must be larger than 0");
         }
         
-        initialize(new File(conf.getIndexPath()), conf.getKmerSize(), conf.getScoringAlgorithmObject(), conf.getWorkerThreads());
+        initialize(new File(conf.getIndexPath()), conf.getKmerSize(), conf.getScoringAlgorithmObject(), conf.getWorkerThreads(), conf.getIndexRamBufferSize());
     }
     
-    private void initialize(File indexPath, int kmerSize, Similarity similarity, int workerThreads) throws Exception {
+    private void initialize(File indexPath, int kmerSize, Similarity similarity, int workerThreads, int ramBufferSize) throws Exception {
         if(!indexPath.exists()) {
             indexPath.mkdirs();
         }
@@ -100,8 +100,10 @@ public class Indexer implements Closeable {
         
         this.workerThreads = workerThreads;
         
-        // use 256MB for ram buffer
-        config.setRAMBufferSizeMB(128);
+        if(ramBufferSize > 0) {
+            config.setRAMBufferSizeMB(ramBufferSize);
+        }
+        
         config.setOpenMode(IndexWriterConfig.OpenMode.CREATE_OR_APPEND);
         this.indexWriter = new IndexWriter(dir, config);
         
