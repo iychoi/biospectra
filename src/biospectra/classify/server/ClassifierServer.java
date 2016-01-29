@@ -21,9 +21,8 @@ import biospectra.classify.Classifier;
 import biospectra.classify.server.RabbitMQInputServer.RabbitMQInputServerEventHandler;
 import java.io.Closeable;
 import java.io.IOException;
-import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.apache.commons.logging.Log;
@@ -64,10 +63,7 @@ public class ClassifierServer implements Closeable {
         };
         this.receiver = new RabbitMQInputServer(conf, this.handler);
         
-        int queueSize = 1000;
-        this.executor = new ThreadPoolExecutor(this.conf.getWorkerThreads(), queueSize, 5000L, TimeUnit.MILLISECONDS, 
-                new ArrayBlockingQueue<Runnable>(queueSize, true), 
-                new ThreadPoolExecutor.CallerRunsPolicy());
+        this.executor = Executors.newFixedThreadPool(this.conf.getWorkerThreads());
     }
     
     private synchronized void addDataset(final ClassificationRequestMessage req, final String replyTo) throws Exception {

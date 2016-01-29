@@ -26,10 +26,9 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.util.List;
 import java.util.Queue;
-import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.logging.Log;
@@ -106,9 +105,7 @@ public class Indexer implements Closeable {
         config.setOpenMode(IndexWriterConfig.OpenMode.CREATE_OR_APPEND);
         this.indexWriter = new IndexWriter(dir, config);
         
-        this.executor = new ThreadPoolExecutor(this.workerThreads, 1000, 5000L, TimeUnit.MILLISECONDS, 
-                new ArrayBlockingQueue<Runnable>(1000, true), 
-                new ThreadPoolExecutor.CallerRunsPolicy());
+        this.executor = Executors.newFixedThreadPool(this.workerThreads);
         
         for(int i=0;i<this.workerThreads;i++) {
             Document doc = new Document();

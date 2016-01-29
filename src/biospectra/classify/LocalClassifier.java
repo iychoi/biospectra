@@ -26,9 +26,8 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.Date;
-import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -89,10 +88,7 @@ public class LocalClassifier implements Closeable {
         summary.setStartTime(new Date());
 
         int threads = this.conf.getWorkerThreads();
-        int queueSize = 1000;
-        ExecutorService executor = new ThreadPoolExecutor(threads, queueSize, 5000L, TimeUnit.MILLISECONDS, 
-                new ArrayBlockingQueue<Runnable>(queueSize, true), 
-                new ThreadPoolExecutor.CallerRunsPolicy());
+        ExecutorService executor = Executors.newFixedThreadPool(threads);
         
         while((read = reader.readNext()) != null) {
             final String sequence = read.getSequence();
