@@ -124,7 +124,7 @@ public class BioSpectra {
             indexer.index(fastaDoc);
             
             Date end = new Date(); 
-            LOG.info("indexing " + fastaDoc.getAbsolutePath() + " finished - " + (end.getTime() - start.getTime()) + " total milliseconds");
+            LOG.info("indexing " + fastaDoc.getAbsolutePath() + " finished - " + (end.getTime() - start.getTime()) + " milliseconds");
         }
         
         indexer.close();
