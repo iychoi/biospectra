@@ -40,7 +40,7 @@ def createIndex(k, config):
     end_time = datetime.now()
 
     duration = end_time - start_time
-    print "Duration: {}".format(duration)
+    print "Duration: ", duration
 
 def classify(k, qalg, config):
     print "Classify -", k, "with", qalg
@@ -57,7 +57,7 @@ def classify(k, qalg, config):
     end_time = datetime.now()
 
     duration = end_time - start_time
-    print "Duration: {}".format(duration)
+    print "Duration: ", duration
 
 def cleanupConfig(config):
     if os.path.exists(config):
