@@ -289,7 +289,6 @@ public class Classifier implements Closeable {
                 }
             }
             
-            String rank = "";
             TaxonTreeDescription desc1 = descs.get(0);
             boolean classified = false;
             

@@ -25,6 +25,12 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.List;
+import java.util.Queue;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -52,6 +58,7 @@ public class Indexer implements Closeable {
     private File indexPath;
     private Analyzer analyzer;
     private IndexWriter indexWriter;
+    private int workerThreads = 1;
     
     public Indexer(Configuration conf) throws Exception {
         if(conf == null) {
@@ -66,10 +73,14 @@ public class Indexer implements Closeable {
             throw new IllegalArgumentException("kmerSize must be larger than 0");
         }
         
-        initialize(new File(conf.getIndexPath()), conf.getKmerSize(), conf.getScoringAlgorithmObject());
+        if(conf.getWorkerThreads() <= 0) {
+            throw new IllegalArgumentException("workerThreads must be larger than 0");
+        }
+        
+        initialize(new File(conf.getIndexPath()), conf.getKmerSize(), conf.getScoringAlgorithmObject(), conf.getWorkerThreads());
     }
     
-    private void initialize(File indexPath, int kmerSize, Similarity similarity) throws Exception {
+    private void initialize(File indexPath, int kmerSize, Similarity similarity, int workerThreads) throws Exception {
         if(!indexPath.exists()) {
             indexPath.mkdirs();
         }
@@ -86,6 +97,10 @@ public class Indexer implements Closeable {
             config.setSimilarity(similarity);
         }
         
+        this.workerThreads = workerThreads;
+        
+        // use 256MB for ram buffer
+        config.setRAMBufferSizeMB(256);
         config.setOpenMode(IndexWriterConfig.OpenMode.CREATE_OR_APPEND);
         this.indexWriter = new IndexWriter(dir, config);
     }
@@ -125,18 +140,10 @@ public class Indexer implements Closeable {
         FASTAReader reader = FastaFileReader.getFASTAReader(fastaDoc);
         FASTAEntry read = null;
         
-        Document doc = new Document();
-        Field filenameField = new StringField(IndexConstants.FIELD_FILENAME, fastaDoc.getName(), Field.Store.YES);
-        Field headerField = new StringField(IndexConstants.FIELD_HEADER, "", Field.Store.YES);
-        Field sequenceDirectionField = new StringField(IndexConstants.FIELD_SEQUENCE_DIRECTION, "", Field.Store.YES);
-        Field taxonTreeField = new StringField(IndexConstants.FIELD_TAXONOMY_TREE, taxonTree, Field.Store.YES);
-        Field sequenceField = new TextField(IndexConstants.FIELD_SEQUENCE, "", Field.Store.NO);
-        
-        doc.add(filenameField);
-        doc.add(headerField);
-        doc.add(sequenceDirectionField);
-        doc.add(taxonTreeField);
-        doc.add(sequenceField);
+        int queueSize = 1000;
+        ExecutorService executor = new ThreadPoolExecutor(this.workerThreads, queueSize, 5000L, TimeUnit.MILLISECONDS, 
+                new ArrayBlockingQueue<Runnable>(queueSize, true), 
+                new ThreadPoolExecutor.CallerRunsPolicy());
         
         while((read = reader.readNext()) != null) {
             String headerLine = read.getHeaderLine();
@@ -144,19 +151,50 @@ public class Indexer implements Closeable {
                 headerLine = headerLine.substring(1);
             }
             
-            String sequence = read.getSequence();
-            headerField.setStringValue(headerLine);
+            final String f_filename = fastaDoc.getName();
+            final String sequence = read.getSequence();
+            final String header = headerLine;
+            final String f_taxonTree = taxonTree;
             
-            // forward-strand
-            sequenceDirectionField.setStringValue("forward");
-            sequenceField.setStringValue(sequence);
-            this.indexWriter.addDocument(doc);
+            Runnable worker = new Runnable() {
+
+                @Override
+                public void run() {
+                    try {
+                        Document doc = new Document();
+                        Field filenameField = new StringField(IndexConstants.FIELD_FILENAME, f_filename, Field.Store.YES);
+                        Field headerField = new StringField(IndexConstants.FIELD_HEADER, "", Field.Store.YES);
+                        Field sequenceDirectionField = new StringField(IndexConstants.FIELD_SEQUENCE_DIRECTION, "", Field.Store.YES);
+                        Field taxonTreeField = new StringField(IndexConstants.FIELD_TAXONOMY_TREE, f_taxonTree, Field.Store.YES);
+                        Field sequenceField = new TextField(IndexConstants.FIELD_SEQUENCE, "", Field.Store.NO);
+
+                        doc.add(filenameField);
+                        doc.add(headerField);
+                        doc.add(sequenceDirectionField);
+                        doc.add(taxonTreeField);
+                        doc.add(sequenceField);
+                        
+                        headerField.setStringValue(header);
             
-            // reverse-strand
-            sequenceDirectionField.setStringValue("reverse");
-            sequenceField.setStringValue(SequenceHelper.getReverseComplement(sequence));
-            this.indexWriter.addDocument(doc);
+                        // forward-strand
+                        sequenceDirectionField.setStringValue("forward");
+                        sequenceField.setStringValue(sequence);
+                        indexWriter.addDocument(doc);
+
+                        // reverse-strand
+                        sequenceDirectionField.setStringValue("reverse");
+                        sequenceField.setStringValue(SequenceHelper.getReverseComplement(sequence));
+                        indexWriter.addDocument(doc);
+                    } catch (Exception ex) {
+                        LOG.error("Exception occurred during index construction", ex);
+                    }
+                }
+            };
+            executor.submit(worker);
         }
+        
+        executor.shutdown();
+        executor.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
         
         reader.close();
     }

@@ -125,6 +125,7 @@ public class LocalClassifier implements Closeable {
         executor.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
 
         bw.close();
+        reader.close();
 
         summary.setEndTime(new Date());
         LOG.info("classifying " + summary.getQueryFilename() + " finished in " + summary.getTimeTaken() + " millisec");
