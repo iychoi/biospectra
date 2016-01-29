@@ -59,6 +59,8 @@ public class Indexer implements Closeable {
     private Analyzer analyzer;
     private IndexWriter indexWriter;
     private int workerThreads = 1;
+    private ExecutorService executor;
+    private Queue<Document> freeQueue = new ConcurrentLinkedQueue<Document>();
     
     public Indexer(Configuration conf) throws Exception {
         if(conf == null) {
@@ -97,15 +99,36 @@ public class Indexer implements Closeable {
             config.setSimilarity(similarity);
         }
         
-        this.workerThreads = workerThreads;
+        this.workerThreads = workerThreads * 2;
         
         // use 256MB for ram buffer
         config.setRAMBufferSizeMB(256);
         config.setOpenMode(IndexWriterConfig.OpenMode.CREATE_OR_APPEND);
         this.indexWriter = new IndexWriter(dir, config);
+        
+        this.executor = new ThreadPoolExecutor(this.workerThreads, 1000, 5000L, TimeUnit.MILLISECONDS, 
+                new ArrayBlockingQueue<Runnable>(1000, true), 
+                new ThreadPoolExecutor.CallerRunsPolicy());
+        
+        for(int i=0;i<this.workerThreads;i++) {
+            Document doc = new Document();
+            Field filenameField = new StringField(IndexConstants.FIELD_FILENAME, "", Field.Store.YES);
+            Field headerField = new StringField(IndexConstants.FIELD_HEADER, "", Field.Store.YES);
+            Field sequenceDirectionField = new StringField(IndexConstants.FIELD_SEQUENCE_DIRECTION, "", Field.Store.YES);
+            Field taxonTreeField = new StringField(IndexConstants.FIELD_TAXONOMY_TREE, "", Field.Store.YES);
+            Field sequenceField = new TextField(IndexConstants.FIELD_SEQUENCE, "", Field.Store.NO);
+
+            doc.add(filenameField);
+            doc.add(headerField);
+            doc.add(sequenceDirectionField);
+            doc.add(taxonTreeField);
+            doc.add(sequenceField);
+            
+            this.freeQueue.offer(doc);
+        }
     }
     
-    public void index(List<File> fastaDocs) throws Exception {
+    public synchronized void index(List<File> fastaDocs) throws Exception {
         if(fastaDocs == null) {
             throw new IllegalArgumentException("fastaDocs is null");
         }
@@ -115,7 +138,7 @@ public class Indexer implements Closeable {
         }
     }
     
-    public void index(File fastaDoc) throws Exception {
+    public synchronized void index(File fastaDoc) throws Exception {
         if(fastaDoc == null) {
             throw new IllegalArgumentException("fastaDoc is null");
         }
@@ -124,7 +147,7 @@ public class Indexer implements Closeable {
         index(fastaDoc, taxonDoc);
     }
     
-    public void index(File fastaDoc, File taxonDoc) throws Exception {
+    public synchronized void index(File fastaDoc, File taxonDoc) throws Exception {
         if(fastaDoc == null) {
             throw new IllegalArgumentException("fastaDoc is null");
         }
@@ -139,11 +162,6 @@ public class Indexer implements Closeable {
         
         FASTAReader reader = FastaFileReader.getFASTAReader(fastaDoc);
         FASTAEntry read = null;
-        
-        int queueSize = 1000;
-        ExecutorService executor = new ThreadPoolExecutor(this.workerThreads, queueSize, 5000L, TimeUnit.MILLISECONDS, 
-                new ArrayBlockingQueue<Runnable>(queueSize, true), 
-                new ThreadPoolExecutor.CallerRunsPolicy());
         
         while((read = reader.readNext()) != null) {
             String headerLine = read.getHeaderLine();
@@ -161,20 +179,31 @@ public class Indexer implements Closeable {
                 @Override
                 public void run() {
                     try {
-                        Document doc = new Document();
-                        Field filenameField = new StringField(IndexConstants.FIELD_FILENAME, f_filename, Field.Store.YES);
-                        Field headerField = new StringField(IndexConstants.FIELD_HEADER, "", Field.Store.YES);
-                        Field sequenceDirectionField = new StringField(IndexConstants.FIELD_SEQUENCE_DIRECTION, "", Field.Store.YES);
-                        Field taxonTreeField = new StringField(IndexConstants.FIELD_TAXONOMY_TREE, f_taxonTree, Field.Store.YES);
-                        Field sequenceField = new TextField(IndexConstants.FIELD_SEQUENCE, "", Field.Store.NO);
+                        Document doc = freeQueue.poll();
+                        if(doc == null) {
+                            doc = new Document();
+                            Field filenameField = new StringField(IndexConstants.FIELD_FILENAME, "", Field.Store.YES);
+                            Field headerField = new StringField(IndexConstants.FIELD_HEADER, "", Field.Store.YES);
+                            Field sequenceDirectionField = new StringField(IndexConstants.FIELD_SEQUENCE_DIRECTION, "", Field.Store.YES);
+                            Field taxonTreeField = new StringField(IndexConstants.FIELD_TAXONOMY_TREE, "", Field.Store.YES);
+                            Field sequenceField = new TextField(IndexConstants.FIELD_SEQUENCE, "", Field.Store.NO);
 
-                        doc.add(filenameField);
-                        doc.add(headerField);
-                        doc.add(sequenceDirectionField);
-                        doc.add(taxonTreeField);
-                        doc.add(sequenceField);
+                            doc.add(filenameField);
+                            doc.add(headerField);
+                            doc.add(sequenceDirectionField);
+                            doc.add(taxonTreeField);
+                            doc.add(sequenceField);
+                        }
                         
+                        StringField filenameField = (StringField) doc.getField(IndexConstants.FIELD_FILENAME);
+                        StringField headerField = (StringField) doc.getField(IndexConstants.FIELD_HEADER);
+                        StringField sequenceDirectionField = (StringField) doc.getField(IndexConstants.FIELD_SEQUENCE_DIRECTION);
+                        StringField taxonTreeField = (StringField) doc.getField(IndexConstants.FIELD_TAXONOMY_TREE);
+                        TextField sequenceField = (TextField) doc.getField(IndexConstants.FIELD_SEQUENCE);
+                        
+                        filenameField.setStringValue(f_filename);
                         headerField.setStringValue(header);
+                        taxonTreeField.setStringValue(f_taxonTree);
             
                         // forward-strand
                         sequenceDirectionField.setStringValue("forward");
@@ -185,24 +214,32 @@ public class Indexer implements Closeable {
                         sequenceDirectionField.setStringValue("reverse");
                         sequenceField.setStringValue(SequenceHelper.getReverseComplement(sequence));
                         indexWriter.addDocument(doc);
+                        
+                        freeQueue.offer(doc);
                     } catch (Exception ex) {
                         LOG.error("Exception occurred during index construction", ex);
                     }
                 }
             };
-            executor.submit(worker);
+            this.executor.submit(worker);
         }
-        
-        executor.shutdown();
-        executor.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
         
         reader.close();
     }
     
     @Override
-    public void close() throws IOException {
-        this.analyzer.close();
-        this.indexWriter.close();
+    public synchronized void close() throws IOException {
+        try {
+            this.executor.shutdown();
+            this.executor.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
+            
+            this.freeQueue.clear();
+            
+            this.analyzer.close();
+            this.indexWriter.close();
+        } catch (InterruptedException ex) {
+            LOG.error("Interrupted", ex);
+        }
     }
 
     private void cleanUpDirectory(File indexPath) {
