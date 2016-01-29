@@ -98,7 +98,7 @@ public class Indexer implements Closeable {
             config.setSimilarity(similarity);
         }
         
-        this.workerThreads = workerThreads;
+        this.workerThreads = workerThreads * 2;
         
         // use 256MB for ram buffer
         config.setRAMBufferSizeMB(256);
