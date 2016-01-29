@@ -40,6 +40,7 @@ public class Configuration {
     public static final int DEFAULT_WORKER_THREADS = 4;
     public static final String DEFAULT_SCORING_ALGORITHM = "default";
     public static final QueryGenerationAlgorithm DEFAULT_QUERY_GENERATION_ALGORITHM = QueryGenerationAlgorithm.PAIRED_PROXIMITY;
+    public static final int DEFAULT_RAMBUFFER_SIZE_INDEXWRITER = 16;
     
     private String indexPath;
     private int kmerSize = DEFAULT_KMERSIZE;
@@ -47,7 +48,8 @@ public class Configuration {
     private double queryMinShouldMatch = DEFAULT_QUERY_TERMS_MIN_SHOULD_MATCH;
     private int workerThreads = DEFAULT_WORKER_THREADS;
     private String scoringAlgorithm = DEFAULT_SCORING_ALGORITHM;
-    private QueryGenerationAlgorithm queryAlgorithm;
+    private QueryGenerationAlgorithm queryAlgorithm = DEFAULT_QUERY_GENERATION_ALGORITHM;
+    private int ramBufferSizeForIndex = DEFAULT_RAMBUFFER_SIZE_INDEXWRITER;
     
     public static Configuration createInstance(File file) throws IOException {
         if(file == null) {
@@ -119,6 +121,16 @@ public class Configuration {
     @JsonProperty("worker_threads")
     public void setWorkerThreads(int workerThreads) {
         this.workerThreads = workerThreads;
+    }
+    
+    @JsonProperty("index_ram_buffer")
+    public int getIndexRamBufferSize() {
+        return this.ramBufferSizeForIndex;
+    }
+    
+    @JsonProperty("index_ram_buffer")
+    public void setIndexRamBufferSize(int ramBufferSizeForIndex) {
+        this.ramBufferSizeForIndex = ramBufferSizeForIndex;
     }
     
     @JsonProperty("query_algorithm")

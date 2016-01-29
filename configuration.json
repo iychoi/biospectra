@@ -1,9 +1,10 @@
 {
     "index_path":"./index",
     "kmer_size":10,
-    "kmer_skips":10,
+    "kmer_skips":0,
     "query_term_min_should_match":0.5,
     "worker_threads":4,
+    "index_ram_buffer":16,
     "query_algorithm":"PAIRED_PROXIMITY",
     "scoring_algorithm":"tfidf"
 }
