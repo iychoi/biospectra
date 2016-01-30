@@ -18,6 +18,7 @@ package biospectra.classify;
 import biospectra.classify.beans.ClassificationResult;
 import biospectra.classify.beans.ClassificationResultSummary;
 import biospectra.Configuration;
+import biospectra.utils.BlockingExecutor;
 import biospectra.utils.FastaFileReader;
 import biospectra.utils.JsonSerializer;
 import java.io.BufferedWriter;
@@ -26,8 +27,6 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.Date;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -88,7 +87,7 @@ public class LocalClassifier implements Closeable {
         summary.setStartTime(new Date());
 
         int threads = this.conf.getWorkerThreads();
-        ExecutorService executor = Executors.newFixedThreadPool(threads);
+        BlockingExecutor executor = new BlockingExecutor(threads, threads * 2);
         
         while((read = reader.readNext()) != null) {
             final String sequence = read.getSequence();
@@ -115,7 +114,7 @@ public class LocalClassifier implements Closeable {
                     }
                 }
             };
-            executor.submit(worker);
+            executor.execute(worker);
         }
         executor.shutdown();
         executor.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);

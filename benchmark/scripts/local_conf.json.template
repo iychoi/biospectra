@@ -3,7 +3,8 @@
     "kmer_size":{size},
     "kmer_skips":0,
     "query_term_min_should_match":0.5,
-    "worker_threads":24,
+    "worker_threads":2,
+    "index_ram_buffer":16,
     "query_algorithm":"{qalg}",
     "scoring_algorithm":"tfidf"
 }

@@ -19,6 +19,7 @@ import biospectra.ServerConfiguration;
 import biospectra.classify.beans.ClassificationResult;
 import biospectra.classify.Classifier;
 import biospectra.classify.server.RabbitMQInputServer.RabbitMQInputServerEventHandler;
+import biospectra.utils.BlockingExecutor;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.concurrent.ExecutorService;
@@ -40,7 +41,7 @@ public class ClassifierServer implements Closeable {
     private ServerConfiguration conf;
     private RabbitMQInputServer receiver;
     private RabbitMQInputServerEventHandler handler;
-    private ExecutorService executor;
+    private BlockingExecutor executor;
     
     public ClassifierServer(ServerConfiguration conf) throws Exception {
         if(conf == null) {
@@ -63,7 +64,7 @@ public class ClassifierServer implements Closeable {
         };
         this.receiver = new RabbitMQInputServer(conf, this.handler);
         
-        this.executor = Executors.newFixedThreadPool(this.conf.getWorkerThreads());
+        this.executor = new BlockingExecutor(this.conf.getWorkerThreads(), this.conf.getWorkerThreads() * 2);
     }
     
     private synchronized void addDataset(final ClassificationRequestMessage req, final String replyTo) throws Exception {
@@ -93,7 +94,7 @@ public class ClassifierServer implements Closeable {
                 }
             }
         };
-        this.executor.submit(worker);
+        this.executor.execute(worker);
     }
     
     public void start() throws IOException {

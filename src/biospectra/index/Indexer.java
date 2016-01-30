@@ -17,6 +17,7 @@ package biospectra.index;
 
 import biospectra.Configuration;
 import biospectra.lucene.KmerIndexAnalyzer;
+import biospectra.utils.BlockingExecutor;
 import biospectra.utils.FastaFileHelper;
 import biospectra.utils.FastaFileReader;
 import biospectra.utils.SequenceHelper;
@@ -27,8 +28,6 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.logging.Log;
@@ -58,7 +57,7 @@ public class Indexer implements Closeable {
     private Analyzer analyzer;
     private IndexWriter indexWriter;
     private int workerThreads = 1;
-    private ExecutorService executor;
+    private BlockingExecutor executor;
     private Queue<Document> freeQueue = new ConcurrentLinkedQueue<Document>();
     
     public Indexer(Configuration conf) throws Exception {
@@ -107,7 +106,7 @@ public class Indexer implements Closeable {
         config.setOpenMode(IndexWriterConfig.OpenMode.CREATE_OR_APPEND);
         this.indexWriter = new IndexWriter(dir, config);
         
-        this.executor = Executors.newFixedThreadPool(this.workerThreads);
+        this.executor = new BlockingExecutor(this.workerThreads, this.workerThreads * 2);
         
         for(int i=0;i<this.workerThreads;i++) {
             Document doc = new Document();
@@ -220,7 +219,7 @@ public class Indexer implements Closeable {
                     }
                 }
             };
-            this.executor.submit(worker);
+            this.executor.execute(worker);
         }
         
         reader.close();
