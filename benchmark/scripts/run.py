@@ -14,6 +14,11 @@ QUERY_ALGS = [
     "PAIRED_PROXIMITY"
 ]
 
+def runCommandSync(cmd):
+    sys.stdout.flush()
+    subprocess.call(cmd, shell=True)
+    sys.stdout.flush()
+
 def createConfig(k, qalg):
     src = "local_conf.json.template"
     if not os.path.exists(src):
@@ -22,8 +27,8 @@ def createConfig(k, qalg):
     dst = "local_conf_" + str(k) + "_" + qalg + ".json"
     shutil.copyfile(src, dst)
 
-    subprocess.call("sed -i 's/{size}/" + str(k) + "/g' " + dst, shell=True)
-    subprocess.call("sed -i 's/{qalg}/" + qalg + "/g' " + dst, shell=True)
+    runCommandSync("sed -i 's/{size}/" + str(k) + "/g' " + dst)
+    runCommandSync("sed -i 's/{qalg}/" + qalg + "/g' " + dst)
     return os.path.abspath(dst)
 
 def createIndex(k, config):
@@ -35,7 +40,7 @@ def createIndex(k, config):
 
     start_time = datetime.now()
 
-    subprocess.call(cmd, shell=True)
+    runCommandSync(cmd)
 
     end_time = datetime.now()
 
@@ -52,7 +57,7 @@ def classify(k, qalg, config):
 
     start_time = datetime.now()
 
-    subprocess.call(cmd, shell=True)
+    runCommandSync(cmd)
 
     end_time = datetime.now()
 
