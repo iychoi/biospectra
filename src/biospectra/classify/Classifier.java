@@ -140,19 +140,18 @@ public class Classifier implements Closeable {
                 offsetArr[1] = offsetAtt.startOffset();
             }
             
-            long offsetDiff = offsetArr[1] - offsetArr[0];
-            if(offsetDiff > 0) {
-                PhraseQuery.Builder pq = new PhraseQuery.Builder();
+            if(termArr[0] != null && termArr[1] != null) {
+                long offsetDiff = offsetArr[1] - offsetArr[0];
+                if(offsetDiff > 0) {
+                    PhraseQuery.Builder pq = new PhraseQuery.Builder();
 
-                pq.setSlop((int) (offsetDiff) + 1);
-                pq.add(termArr[0]);
-                pq.add(termArr[1]);
+                    pq.setSlop((int) (offsetDiff) + 1);
+                    pq.add(termArr[0]);
+                    pq.add(termArr[1]);
 
-                builder.add(pq.build(), BooleanClause.Occur.SHOULD);
+                    builder.add(pq.build(), BooleanClause.Occur.SHOULD);
+                }
             }
-
-            termArr[0] = null;
-            termArr[1] = null;
         }
     }
 
