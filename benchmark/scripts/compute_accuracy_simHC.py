@@ -56,11 +56,12 @@ def _compute_accuracy(path):
                     for r in result:
                         taxon_hier = r['taxon_hierarchy']
 
-                        hj = json.loads(taxon_hier)
-                        for h in hj:
-                            if h['name'] in KNOWN_ANSWERS_SIMHC[fasta_file]:
-                                found = True
-                                break
+                        if taxon_hier and len(taxon_hier) > 0:
+                            hj = json.loads(taxon_hier)
+                            for h in hj:
+                                if h['name'] in KNOWN_ANSWERS_SIMHC[fasta_file]:
+                                    found = True
+                                    break
 
                         if found:
                             break
