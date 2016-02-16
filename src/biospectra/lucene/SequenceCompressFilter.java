@@ -33,16 +33,18 @@ public final class SequenceCompressFilter extends TokenFilter {
     private static final Log LOG = LogFactory.getLog(SequenceCompressFilter.class);
     
     private final CharTermAttribute termAtt = addAttribute(CharTermAttribute.class);
-    private boolean compress = true;
+    private boolean base64Compress = true;
+    private boolean minStrand = false;
     
     public SequenceCompressFilter(TokenStream in) {
         super(in);
     }
     
-    public SequenceCompressFilter(TokenStream in, boolean compress) {
+    public SequenceCompressFilter(TokenStream in, boolean base64Compress, boolean minStrand) {
         super(in);
         
-        this.compress = compress;
+        this.base64Compress = base64Compress;
+        this.minStrand = minStrand;
     }
     
     @Override
@@ -51,7 +53,21 @@ public final class SequenceCompressFilter extends TokenFilter {
             char[] buffer = this.termAtt.buffer();
             final int length = this.termAtt.length();
             
-            if(this.compress) {
+            if(this.minStrand) {
+                char[] reverseComplement = SequenceHelper.getReverseComplement(buffer, length);
+                
+                String originalSeq = String.valueOf(buffer, 0, length);
+                String revcompSeq = String.valueOf(reverseComplement);
+                
+                if(originalSeq.compareTo(revcompSeq) > 0) {
+                    // use reverse-complement sequence
+                    for(int i=0;i<length;i++) {
+                        buffer[i] = reverseComplement[i];
+                    }
+                }
+            }
+            
+            if(this.base64Compress) {
                 byte[] compressed = SequenceHelper.compress(buffer, length);
                 byte[] encoded = Base64.encodeBase64(compressed);
 

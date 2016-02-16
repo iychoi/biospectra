@@ -65,6 +65,7 @@ public class Classifier implements Closeable {
     private double minShouldMatch;
     private int kmerSize;
     private int kmerSkips;
+    private boolean minStrandKmer;
     private QueryGenerationAlgorithm queryGenerationAlgorithm;
     
     public Classifier(Configuration conf) throws Exception {
@@ -84,10 +85,10 @@ public class Classifier implements Closeable {
             throw new IllegalArgumentException("kmerSkips must be equal or larger than 0");
         }
         
-        initialize(new File(conf.getIndexPath()), conf.getKmerSize(), conf.getKmerSkips(), conf.getQueryMinShouldMatch(), conf.getQueryGenerationAlgorithm(), conf.getScoringAlgorithmObject());
+        initialize(new File(conf.getIndexPath()), conf.getKmerSize(), conf.getKmerSkips(), conf.getMinStrandKmer(), conf.getQueryMinShouldMatch(), conf.getQueryGenerationAlgorithm(), conf.getScoringAlgorithmObject());
     }
     
-    private void initialize(File indexPath, int kmerSize, int kmerSkips, double minShouldMatch, QueryGenerationAlgorithm queryGenerationAlgorithm, Similarity similarity) throws Exception {
+    private void initialize(File indexPath, int kmerSize, int kmerSkips, boolean minStrandKmer, double minShouldMatch, QueryGenerationAlgorithm queryGenerationAlgorithm, Similarity similarity) throws Exception {
         if(!indexPath.exists() || !indexPath.isDirectory()) {
             throw new IllegalArgumentException("indexPath is not a directory or does not exist");
         }
@@ -95,7 +96,8 @@ public class Classifier implements Closeable {
         this.indexPath = indexPath;
         this.kmerSize = kmerSize;
         this.kmerSkips = kmerSkips;
-        this.queryAnalyzer = new KmerQueryAnalyzer(this.kmerSize, this.kmerSkips);
+        this.minStrandKmer = minStrandKmer;
+        this.queryAnalyzer = new KmerQueryAnalyzer(this.kmerSize, this.kmerSkips, this.minStrandKmer);
         Directory dir = new MMapDirectory(this.indexPath.toPath()); 
         this.indexReader = DirectoryReader.open(dir);
         this.indexSearcher = new IndexSearcher(this.indexReader);

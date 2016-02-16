@@ -30,9 +30,16 @@ public class KmerIndexAnalyzer extends Analyzer {
     private static final Log LOG = LogFactory.getLog(KmerIndexAnalyzer.class);
     
     private int k;
+    private boolean useMinStrand;
 
     public KmerIndexAnalyzer(int k) {
         this.k = k;
+        this.useMinStrand = false;
+    }
+    
+    public KmerIndexAnalyzer(int k, boolean useMinStrand) {
+        this.k = k;
+        this.useMinStrand = useMinStrand;
     }
     
     @Override
@@ -41,7 +48,7 @@ public class KmerIndexAnalyzer extends Analyzer {
             Tokenizer tokenizer = new KmerSequenceTokenizer(this.k, 0);
             // use lower sequence form (forward / reverse complement)
             // use compression make 1/3 of size
-            SequenceCompressFilter filter = new SequenceCompressFilter(tokenizer, true);
+            SequenceCompressFilter filter = new SequenceCompressFilter(tokenizer, true, this.useMinStrand);
             return new TokenStreamComponents(tokenizer, filter);
         } catch (IOException ex) {
             LOG.error("Exception occurred during tokenization", ex);

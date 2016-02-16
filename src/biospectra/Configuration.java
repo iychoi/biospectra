@@ -36,6 +36,7 @@ public class Configuration {
     
     public static final int DEFAULT_KMERSIZE = 10;
     public static final int DEFAULT_KMERSKIPS = 5;
+    public static final boolean DEFAULT_MIN_STRAND_KMER = false;
     public static final double DEFAULT_QUERY_TERMS_MIN_SHOULD_MATCH = 0.5;
     public static final int DEFAULT_WORKER_THREADS = 4;
     public static final String DEFAULT_SCORING_ALGORITHM = "default";
@@ -45,6 +46,7 @@ public class Configuration {
     private String indexPath;
     private int kmerSize = DEFAULT_KMERSIZE;
     private int kmerSkips = DEFAULT_KMERSKIPS;
+    private boolean minStrandKmer = DEFAULT_MIN_STRAND_KMER;
     private double queryMinShouldMatch = DEFAULT_QUERY_TERMS_MIN_SHOULD_MATCH;
     private int workerThreads = DEFAULT_WORKER_THREADS;
     private String scoringAlgorithm = DEFAULT_SCORING_ALGORITHM;
@@ -101,6 +103,16 @@ public class Configuration {
     @JsonProperty("kmer_skips")
     public void setKmerSkips(int kmerSkips) {
         this.kmerSkips = kmerSkips;
+    }
+    
+    @JsonProperty("min_strand_kmer")
+    public boolean getMinStrandKmer() {
+        return minStrandKmer;
+    }
+    
+    @JsonProperty("min_strand_kmer")
+    public void setMinStrandKmer(boolean minStrandKmer) {
+        this.minStrandKmer = minStrandKmer;
     }
     
     @JsonProperty("query_term_min_should_match")

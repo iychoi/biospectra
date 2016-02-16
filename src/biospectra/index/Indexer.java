@@ -77,10 +77,10 @@ public class Indexer implements Closeable {
             throw new IllegalArgumentException("workerThreads must be larger than 0");
         }
         
-        initialize(new File(conf.getIndexPath()), conf.getKmerSize(), conf.getScoringAlgorithmObject(), conf.getWorkerThreads(), conf.getIndexRamBufferSize());
+        initialize(new File(conf.getIndexPath()), conf.getKmerSize(), conf.getMinStrandKmer(), conf.getScoringAlgorithmObject(), conf.getWorkerThreads(), conf.getIndexRamBufferSize());
     }
     
-    private void initialize(File indexPath, int kmerSize, Similarity similarity, int workerThreads, int ramBufferSize) throws Exception {
+    private void initialize(File indexPath, int kmerSize, boolean minStrandKmer, Similarity similarity, int workerThreads, int ramBufferSize) throws Exception {
         if(!indexPath.exists()) {
             indexPath.mkdirs();
         }
@@ -90,7 +90,7 @@ public class Indexer implements Closeable {
         }
         
         this.indexPath = indexPath;
-        this.analyzer = new KmerIndexAnalyzer(kmerSize);
+        this.analyzer = new KmerIndexAnalyzer(kmerSize, minStrandKmer);
         Directory dir = new NIOFSDirectory(this.indexPath.toPath()); 
         IndexWriterConfig config = new IndexWriterConfig(this.analyzer); 
         if(similarity != null) {
