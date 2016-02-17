@@ -59,6 +59,7 @@ public class Indexer implements Closeable {
     private int workerThreads = 1;
     private BlockingExecutor executor;
     private Queue<Document> freeQueue = new ConcurrentLinkedQueue<Document>();
+    private boolean minStrandKmer;
     
     public Indexer(Configuration conf) throws Exception {
         if(conf == null) {
@@ -90,6 +91,7 @@ public class Indexer implements Closeable {
         }
         
         this.indexPath = indexPath;
+        this.minStrandKmer = minStrandKmer;
         this.analyzer = new KmerIndexAnalyzer(kmerSize, minStrandKmer);
         Directory dir = new MMapDirectory(this.indexPath.toPath()); 
         IndexWriterConfig config = new IndexWriterConfig(this.analyzer); 
@@ -171,6 +173,7 @@ public class Indexer implements Closeable {
             final String sequence = read.getSequence();
             final String header = headerLine;
             final String f_taxonTree = taxonTree;
+            final boolean f_minStrandKmer = this.minStrandKmer;
             
             Runnable worker = new Runnable() {
 
@@ -203,15 +206,22 @@ public class Indexer implements Closeable {
                         headerField.setStringValue(header);
                         taxonTreeField.setStringValue(f_taxonTree);
             
-                        // forward-strand
-                        sequenceDirectionField.setStringValue("forward");
-                        sequenceField.setStringValue(sequence);
-                        indexWriter.addDocument(doc);
+                        if(f_minStrandKmer) {
+                            // min-strand
+                            sequenceDirectionField.setStringValue("min_strand");
+                            sequenceField.setStringValue(sequence);
+                            indexWriter.addDocument(doc);
+                        } else {
+                            // forward-strand
+                            sequenceDirectionField.setStringValue("forward");
+                            sequenceField.setStringValue(sequence);
+                            indexWriter.addDocument(doc);
 
-                        // reverse-strand
-                        sequenceDirectionField.setStringValue("reverse");
-                        sequenceField.setStringValue(SequenceHelper.getReverseComplement(sequence));
-                        indexWriter.addDocument(doc);
+                            // reverse-strand
+                            sequenceDirectionField.setStringValue("reverse");
+                            sequenceField.setStringValue(SequenceHelper.getReverseComplement(sequence));
+                            indexWriter.addDocument(doc);
+                        }
                         
                         freeQueue.offer(doc);
                     } catch (Exception ex) {
