@@ -2,6 +2,7 @@
     "index_path":"./index/bacteria_ncbi_index_bnch_{size}",
     "kmer_size":{size},
     "kmer_skips":0,
+    "min_strand_kmer":false,
     "query_term_min_should_match":0.5,
     "worker_threads":2,
     "index_ram_buffer":16,
