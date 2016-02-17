@@ -41,7 +41,7 @@ import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.search.similarities.Similarity;
 import org.apache.lucene.store.Directory;
-import org.apache.lucene.store.NIOFSDirectory;
+import org.apache.lucene.store.MMapDirectory;
 import org.yeastrc.fasta.FASTAEntry;
 import org.yeastrc.fasta.FASTAReader;
 
@@ -91,7 +91,7 @@ public class Indexer implements Closeable {
         
         this.indexPath = indexPath;
         this.analyzer = new KmerIndexAnalyzer(kmerSize, minStrandKmer);
-        Directory dir = new NIOFSDirectory(this.indexPath.toPath()); 
+        Directory dir = new MMapDirectory(this.indexPath.toPath()); 
         IndexWriterConfig config = new IndexWriterConfig(this.analyzer); 
         if(similarity != null) {
             config.setSimilarity(similarity);
