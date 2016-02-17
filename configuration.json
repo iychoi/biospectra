@@ -2,6 +2,7 @@
     "index_path":"./index",
     "kmer_size":10,
     "kmer_skips":0,
+    "min_strand_kmer":false,
     "query_term_min_should_match":0.5,
     "worker_threads":4,
     "index_ram_buffer":16,

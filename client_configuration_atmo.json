@@ -1,0 +1,6 @@
+{
+    "rabbitmq_hostnames":["vm64-227.iplantcollaborative.org"],
+    "rabbitmq_port":5672,
+    "rabbitmq_user_id":"biospectra",
+    "rabbitmq_user_pwd":"biospectra"
+}
