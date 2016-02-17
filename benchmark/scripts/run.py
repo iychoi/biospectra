@@ -155,6 +155,9 @@ def go(k):
             trySendEmail(subject, body)
     
         classify(k, qalg, config)
+        subject = "BioSpectra - classification (" + str(k) + ", " + qalg +") is done"
+        body = "BioSpectra - classification (" + str(k) + ", " + qalg +") is done"
+        trySendEmail(subject, body)
 
     """
     Clean Up
