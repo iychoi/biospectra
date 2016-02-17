@@ -102,12 +102,44 @@ def calcIndexSize(config):
 
     return 0
 
+def login(username, password):
+    session = smtplib.SMTP('smtp.gmail.com', 587)
+    session.ehlo()
+    session.starttls()
+    session.login(username, password)
+    return session
+
+def sendmail(session, username, recipient, subject, body):
+    headers = "\r\n".join(["from: " + username,
+                           "subject: " + subject,
+                           "to: " + recipient,
+                           "mime-version: 1.0",
+                           "content-type: text/html"])
+
+    # body_of_email can be plaintext or html!           
+    content = headers + "\r\n\r\n" + body
+    session.sendmail(username, recipient, content)
+
+def trySendEmail(subject, body):
+    username = "bugsoda@gmail.com"
+    password = ""
+    recipient = "iychoi@email.arizona.edu"
+
+    if username and password and recipient:
+        try:
+            session = login(username, password)
+            sendmail(session, username, recipient, subject, body)
+            session.close()
+            print "Email Notification is sent to", recipient
+        except:
+            print "Failed to send an email Notification to", recipient
+
 def go(k):
     create_index = True
     created_config = []
     for qalg in QUERY_ALGS:
         config = createConfig(k, qalg)
-	created_config.append(config)
+    	created_config.append(config)
         if create_index:
             createIndex(k, config)
             sizeTotal = calcIndexSize(config)
@@ -118,6 +150,9 @@ def go(k):
             print "total size", "=", sizeTotal/1024/1024/1024, "gigabytes"
 
             create_index = False
+            subject = "BioSpectra - index (" + str(k) +") is created"
+            body = "BioSpectra - index (" + str(k) +") is created"
+            trySendEmail(subject, body)
     
         classify(k, qalg, config)
 
