@@ -99,6 +99,9 @@ public class BioSpectra {
             }
             
             runServer(serverArg);
+        } else if(programMode.equalsIgnoreCase("simulate")) {
+            System.out.println("Generating simulated reads...");
+            simulateReads(programArgs);
         } else {
             printHelp();
         }
@@ -196,14 +199,14 @@ public class BioSpectra {
         server.close();
     }
     
-    private static void sample(String[] args) throws Exception {
-        String fastaDir = args[1];
-        int readSize = Integer.parseInt(args[2]);
-        double errorRatioStart = Double.parseDouble(args[3]);
-        double errorRatioEnd = Double.parseDouble(args[4]);
-        double errorRatioStep = Double.parseDouble(args[5]);
-        int iteration = Integer.parseInt(args[6]);
-        String outDir = args[7];
+    private static void simulateReads(String[] args) throws Exception {
+        String fastaDir = args[0];
+        int readSize = Integer.parseInt(args[1]);
+        double errorRatioStart = Double.parseDouble(args[2]);
+        double errorRatioEnd = Double.parseDouble(args[3]);
+        double errorRatioStep = Double.parseDouble(args[4]);
+        int iteration = Integer.parseInt(args[5]);
+        String outDir = args[6];
 
         List<File> fastaDocs = FastaFileHelper.findFastaDocs(fastaDir);
 
